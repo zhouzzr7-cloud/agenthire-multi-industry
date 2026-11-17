@@ -1,7 +1,7 @@
 import assets from "./assets.mjs";
 import {dedupe,getBaiduJobs,getIndexJobs} from "./sources.mjs";
 import {getTeamJobs} from "./team-sources.mjs";
-import {handleCareerSearch} from "./career-search.mjs";
+import {handleCareerSearch,handleWebJobSearch} from "./career-search.mjs";
 import {getCareerJobs,getJobs} from "../lib/jobs.ts";
 
 const maxAge = 36 * 60 * 60 * 1000;
@@ -107,6 +107,10 @@ export default {
       if(url.pathname==="/api/jobs"&&request.method==="GET")return json(publicFeed(await read(env)));
       if(url.pathname==="/api/jobs/search"&&request.method==="POST"){
         const {status,data}=await handleCareerSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs);
+        return json(data,status);
+      }
+      if(url.pathname==="/api/jobs/web-search"&&request.method==="POST"){
+        const {status,data}=await handleWebJobSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs);
         return json(data,status);
       }
       if(url.pathname==="/api/refresh"&&request.method==="POST"){

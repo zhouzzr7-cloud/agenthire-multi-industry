@@ -1,4 +1,5 @@
 import {searchSiteJobs} from "../lib/job-search.mjs";
+import {findWebJobs} from "./web-jobs.mjs";
 
 const maxBody = 4096;
 
@@ -49,4 +50,18 @@ export async function handleCareerSearch(request,env,records,liveRecords){
   const useModel=await reserveModelRequest(env);
   const data=await searchSiteJobs(query,[...records,...live],useModel?{apiKey:env.DEEPSEEK_API_KEY}:{});
   return {status:200,data};
+}
+
+export async function handleWebJobSearch(request,env,records,liveRecords){
+  const query=await readQuery(request);
+  if(!query)return {status:400,data:{error:"invalid_query"}};
+  if(!env.DEEPSEEK_API_KEY)return {status:503,data:{error:"key_missing"}};
+  if(!await reserveModelRequest(env))return {status:429,data:{error:"quota_unavailable"}};
+  const live=await liveRecords().catch(()=>[]);
+  const knownUrls=[...records,...live].flatMap(job=>[job.sourceUrl,job.applyUrl]).filter(Boolean);
+  try{
+    return {status:200,data:{matches:await findWebJobs({query,apiKey:env.DEEPSEEK_API_KEY,knownUrls})}};
+  }catch{
+    return {status:502,data:{error:"web_search_unavailable"}};
+  }
 }
