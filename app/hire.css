@@ -1,0 +1,196 @@
+/* AgentHire's editorial job board. */
+:root{--bg:#f6f7f1;--surface:#fff;--card:#fff;--text:#19221b;--muted:#59655a;--border:#dce2d7;--accent:#335d38;--lime:#dcfa82;--ink:#16241a;--font:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+body{background:var(--bg);color:var(--text);color-scheme:light}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #527b3f;outline-offset:3px}
+.header{height:68px;background:#f9faf4;border-bottom:1px solid var(--border)}
+.nav-wrap,.container{max-width:1180px}
+.brand{font-weight:750;letter-spacing:-.9px;color:#17271b}
+.brand-symbol{background:var(--ink);color:var(--lime);border-radius:8px}
+.brand-symbol>span,.brand-dot{color:#527147}
+.brand-symbol>span{color:var(--lime)}
+.nav a{color:#536252;font-size:14px}
+.nav a:hover,.nav a.active{color:#173e24}
+.nav a.active::after{background:#325b3a}
+.nav-count{background:#e1edce;color:#263f2a}
+.nav-cta{background:var(--ink);border-color:var(--ink);color:var(--lime);border-radius:8px;padding:8px 12px}
+.icon-button{color:#526052}
+.icon-button:hover{color:#203b22;background:#eef3e7}
+footer{background:#edf0e7;color:#374938;border-color:var(--border)}
+.footer-top{border-color:var(--border)}
+.footer-top p,.footer-top p span,.footer-top>a:last-child,.footer-bottom,.footer-bottom a{color:#59665a}
+.button.primary{background:#24472f;color:white;border-color:#24472f;border-radius:8px}
+.button.primary:hover{background:#315e3e;color:white}
+.button.secondary{color:#24472f;background:#fff;border-color:var(--border);border-radius:8px}
+.text-link,.source-link{color:#295232}
+.eyebrow,.muted-title,.small-caption{color:#536552}
+.hire-overline,.hire-kicker,.visual-label{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:11px;font-weight:650;letter-spacing:.1em}
+.hire-overline{color:#536552}
+.hire-hero{background:var(--ink);color:#f5f8ed;overflow:hidden}
+.hire-hero-grid{display:grid;grid-template-columns:1.13fr .87fr;align-items:center;gap:clamp(30px,6vw,92px);min-height:520px;padding-block:64px 88px}
+.hire-hero-content{min-width:0}
+.hire-kicker{color:#c0d1bb;display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.hire-kicker span,.visual-label i,.hire-sync i,.hire-board-pulse i{height:8px;width:8px;display:inline-block;border-radius:50%;background:#a9df64}
+.hire-hero h1{font-size:clamp(52px,6.9vw,94px);font-weight:720;line-height:1.05;letter-spacing:-.075em}
+.hire-hero h1 em{color:var(--lime);font-style:normal;letter-spacing:-.065em}
+.hire-hero h1 em span{color:#acd455}
+.hire-lead{color:#c1d0bf;font-size:16px;line-height:1.85;margin:23px 0 25px}
+.hire-search{display:flex;align-items:center;min-height:56px;padding:5px 5px 5px 15px;gap:11px;background:white;color:#536553;border:1px solid var(--border);border-radius:11px}
+.hire-search>svg{flex:none}
+.hire-search input{color:#18271b;background:transparent;border:0;outline:0!important;min-width:0;flex:1;font:inherit}
+.hire-search:focus-within{outline:2px solid #80a55d;outline-offset:2px}
+.hire-search input::placeholder{color:#647363}
+.hire-search button{background:var(--lime);color:#23391f;border:0;padding:0 14px;min-height:44px;border-radius:7px;font-size:14px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.hire-search button:hover{background:#cbee69}
+.hire-quick{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:15px;color:#c9d7c4;font-size:13px}
+.hire-quick a{border:1px solid #425b44;border-radius:20px;padding:5px 10px;display:inline-flex;gap:5px;align-items:center}
+.hire-quick a:hover{border-color:var(--lime);color:var(--lime)}
+.hire-visual{position:relative;background:#1e2f23;border:1px solid #425646;border-radius:20px;min-width:0;overflow:hidden;min-height:347px;display:flex;flex-direction:column}
+.visual-label{display:flex;align-items:center;justify-content:space-between;color:#afc1a9;padding:17px 20px;border-bottom:1px solid #405144}
+.visual-label span:first-child{display:flex;align-items:center;gap:9px}
+.visual-bottom{border-top:1px solid #405144;border-bottom:0;margin-top:auto}
+.visual-grid{position:relative;min-height:246px;isolation:isolate;background:radial-gradient(circle,#5f785b 1px,transparent 1.2px) center/18px 18px}
+.stack-orbit{position:absolute;border:1px dashed #526953;border-radius:50%;width:66%;aspect-ratio:2.4;left:17%;top:33%;transform:rotate(-22deg);z-index:-1}
+.orbit-two{transform:rotate(23deg);opacity:.75}
+.stack-chip{position:absolute;display:flex;gap:12px;align-items:center;line-height:1.25;border-radius:12px;padding:12px 15px;border:1px solid #688369;background:#283f30;color:#e2eedc;font-family:ui-monospace,Consolas,monospace;font-weight:700;font-size:14px;box-shadow:0 8px 28px #111c13a0}
+.stack-chip>svg{width:22px;flex:none}
+.stack-chip small{display:block;font-size:9px;margin-top:4px;color:inherit;opacity:.82}
+.chip-app{background:var(--lime);color:#22311b;top:37%;left:12%;transform:rotate(-8deg);z-index:2;padding:15px}
+.chip-app .chip-arrow{margin-left:6px;width:17px}
+.chip-runtime{top:13%;right:10%;transform:rotate(9deg)}
+.chip-infra{bottom:12%;right:13%;transform:rotate(7deg);background:#355542}
+.hire-stats{display:grid;grid-template-columns:repeat(3,1fr) 1.35fr;background:white;border:1px solid var(--border);border-radius:14px;align-items:stretch;min-height:95px}
+.hire-home-stats{margin-top:-37px;position:relative;z-index:2;box-shadow:0 10px 35px #25392813}
+.hire-stats>div{display:flex;align-items:center;gap:13px;padding:16px clamp(12px,2vw,23px);border-right:1px solid var(--border)}
+.hire-stats>div>svg{color:#4a6646;flex:none}
+.hire-stats strong,.hire-stats small{display:block}
+.hire-stats strong{font-size:26px;letter-spacing:-.055em;font-weight:750;line-height:1.2}
+.hire-stats small{font-size:13px;color:var(--muted);margin-top:4px}
+.hire-sync{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:16px;color:#325738;font-size:13px}
+.hire-sync>span,.hire-board-pulse>span{display:flex;align-items:center;gap:7px}
+.hire-sync i,.hire-board-pulse i{background:#629340;flex:none}
+.hire-directions{padding:55px 0 42px}
+.hire-section-heading,.hire-next{display:flex;align-items:end;justify-content:space-between;gap:20px}
+.hire-section-heading h2,.hire-next h2{font-size:clamp(24px,3vw,37px);margin-top:7px;letter-spacing:-.045em}
+.hire-section-heading a,.hire-next a{display:flex;align-items:center;gap:7px;color:#295232;font-size:14px;font-weight:700}
+.hire-direction-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:21px}
+.hire-direction{position:relative;border:1px solid var(--border);border-radius:13px;background:#fff;padding:22px;transition:background .15s,border-color .15s;min-height:168px}
+.hire-direction:hover{background:#f1f8e4;border-color:#92a580}
+.hire-direction>div{display:flex;justify-content:space-between;align-items:center;color:#486d47;margin-bottom:13px}
+.hire-direction>div span{font:12px ui-monospace,Consolas,monospace}
+.hire-direction small{color:#536c52;font-size:13px}
+.hire-direction h3{font-size:19px;margin:5px 0 8px}
+.hire-direction p{font-size:13px;color:var(--muted);padding-right:22px}
+.direction-arrow{position:absolute;right:20px;bottom:22px;color:#51744d}
+.hire-next{margin-bottom:65px;border-radius:14px;background:#e8eedf;padding:26px 29px;align-items:center}
+.hire-next p:last-child{font-size:14px;color:#536451;margin-top:10px}
+.hire-next>div:last-child{display:flex;gap:9px;flex-wrap:wrap}
+.hire-next a{background:white;border:1px solid #d7e2cf;border-radius:8px;padding:8px 12px}
+.hire-board{padding-block:44px 65px}
+.hire-board-title{display:flex;justify-content:space-between;align-items:end;gap:17px;margin:8px 0 22px}
+.hire-board-title h1{font-size:clamp(34px,5.3vw,58px);line-height:1.15;letter-spacing:-.06em}
+.hire-board-title p{font-size:15px;line-height:1.55;color:var(--muted);margin-top:9px}
+.hire-board-pulse{font-size:13px;color:#355638;background:#edf2e5;border:1px solid #dbe6d4;padding:9px 12px;border-radius:9px}
+.hire-board-pulse small{display:block;margin-top:4px;color:#52634e;font-size:12px}
+.hire-board-search{min-height:54px;padding-right:10px}
+.hire-board-search .hire-search-clear{min-height:36px;background:#edf2e8;padding:0 9px}
+.hire-track{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.hire-track button{padding:7px 12px;background:transparent;border:1px solid transparent;border-radius:8px;min-height:38px;color:#455945;font:inherit;font-size:14px;font-weight:650}
+.hire-track button:hover{background:#eaf0e3}
+.hire-track button[aria-pressed=true]{background:var(--ink);color:var(--lime)}
+.hire-board-layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:23px;align-items:start}
+.hire-filters{background:#fff;border:1px solid var(--border);border-radius:12px;padding:15px;display:grid;gap:11px}
+.hire-filter-head{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700}
+.hire-filter-head span{display:flex;align-items:center;gap:7px}
+.hire-filter-head button,.hire-filter-more{color:#355d3a;border:0;background:transparent;font:inherit;font-size:13px}
+.hire-filter-select{display:grid;gap:5px;font-size:13px;color:#435443;min-width:0}
+.hire-filter-select select{background:#f8faf6;border:1px solid #d9e1d4;color:#283b2b;border-radius:7px;min-height:37px;padding:4px 8px;max-width:100%;font:inherit}
+.hire-filter-more{display:flex;justify-content:space-between;text-align:left;padding:8px 0 0;border-top:1px solid var(--border);font-weight:650}
+.hire-advanced{display:grid;gap:10px}
+.hire-checkbox{font-size:13px;display:flex;gap:6px;align-items:center;color:#3d523f}
+.hire-checkbox input{accent-color:#2b5632}
+.hire-results-bar{min-height:39px;display:flex;justify-content:space-between;align-items:center;gap:12px;color:#4e5f4d;font-size:14px;margin:0 0 9px}
+.hire-results-bar strong{font-size:21px;color:#1c341f}
+.hire-results-bar label span{position:absolute;clip:rect(0,0,0,0);width:1px;height:1px;overflow:hidden}
+.hire-role-list{display:grid;gap:9px}
+.job-card.hire-role{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:13px;background:#fff;border:1px solid var(--border);border-radius:11px;padding:14px;align-items:start}
+.job-card.hire-role:hover{border-color:#9eb09a;background:#fff}
+.hire-company-mark{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;background:#e8efde;color:#315a37;font-size:14px;font-weight:750;text-transform:uppercase}
+.hire-role-company{display:flex;align-items:center;flex-wrap:wrap;gap:7px;color:#465e47;font-size:13px;line-height:1.35}
+.hire-role h3{font-size:18px;font-weight:700;line-height:1.35;letter-spacing:-.015em;margin:5px 0 7px;padding:0;color:#1d3021}
+.hire-role h3 a:hover{text-decoration:underline;text-underline-offset:4px}
+.hire-role-meta,.hire-role-tags{display:flex;flex-wrap:wrap;gap:5px 10px;font-size:13px;color:#506251}
+.hire-role-meta span{display:flex;align-items:center;gap:3px}
+.hire-role-tags{margin-top:8px;gap:5px}
+.hire-role-tags span{font-size:12px;background:#f1f4ef;border-radius:4px;padding:3px 6px;line-height:1.2}
+.hire-role-tags span:first-child{background:#e9f0dc;color:#315435;font-weight:650}
+.hire-role-tags span.agent-infra{background:#dfece5;color:#244d3e}
+.hire-role-tags span.ai-infra{background:#e7ebf5;color:#354666}
+.hire-role-actions{display:flex;flex-direction:column;align-items:end;gap:7px;min-width:86px}
+.hire-role-actions .save-button{position:static;width:32px;height:32px;border:1px solid var(--border);border-radius:7px;color:#4c634d}
+.hire-role-actions .save-button[aria-pressed=true]{color:#305d33;background:#e8f0df}
+.hire-salary{font-size:13px;font-weight:650;color:#31513a;text-align:right}
+.hire-apply{color:#315a37;border:1px solid #d8e2d4;border-radius:7px;font-size:13px;white-space:nowrap;padding:6px 8px;display:flex;align-items:center;gap:4px}
+.hire-apply:hover{background:#eaf3e0}
+.status{background:#edf1eb;color:#4c614f;border-color:#dce5d9}
+.status-verified{background:#e4f1de;border-color:#c5dec0;color:#2e5d32}
+.status-unverified{background:#f7efdb;border-color:#eadbb3;color:#775a20}
+.status-closed{background:#eef0ec;color:#586259}
+.hire-empty{display:grid;justify-items:center;text-align:center;gap:12px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:36px 15px;color:#4f6151}
+.hire-empty h2{color:#283f2c;font-size:20px}
+.hire-empty a,.hire-empty button,.hire-load{padding:9px 13px;border-radius:7px;background:#ebf3e3;border:1px solid #d6e4ce;color:#244b2b;font:inherit;display:inline-flex;align-items:center;gap:7px}
+.hire-load{display:flex;justify-content:center;width:100%;margin-top:12px}
+.hire-load span{font-size:13px;color:#586c55}
+.detail-header,.detail-content section,.detail-sidebar,.demo-banner,.evidence,.match-grid,.match-grid>div,.about-grid,.about-grid section,.status-table,.status-table>div,.infra-topics,.infra-topics article{border-color:var(--border)}
+.detail-header h1,.detail-salary,.detail-content h2,.about-grid h2,.infra-topics h2{color:#1b3321}
+.detail-header p,.detail-content p,.detail-content li,.detail-sidebar dt,.detail-sidebar dd,.source-grid dt,.source-grid dd,.small-copy,.demo-banner p,.match-grid>div>span,.match-grid strong,.about-grid p,.about-lead,.infra-page-intro,.infra-topics p,.infra-principle p,.page-intro p{color:#4d6050!important}
+.detail-sidebar,.demo-banner,.unavailable{background:#fff;color:#38513a}
+.company-mark,.company-mark.large{background:#e4efdc;color:#36573b;border-color:#cedcc9}
+.tags>span,.tags>span.category-tag{background:#edf3e7;color:#365638;border-color:#d8e3d5}
+.back-link,.infra-topics svg{color:#355d3a}
+@media(max-width:900px){.hire-hero-grid{gap:25px;min-height:470px}.hire-visual{min-height:305px}.visual-grid{min-height:207px}.hire-board-layout{grid-template-columns:175px minmax(0,1fr);gap:15px}}
+@media(max-width:700px){
+  .nav.open{background:#f9faf4;border-color:var(--border)}
+  .hire-hero-grid{grid-template-columns:minmax(0,1fr);min-height:0;padding-block:39px 58px;gap:24px}
+  .hire-hero h1{font-size:clamp(53px,11vw,74px)}
+  .hire-lead{font-size:15px;margin:17px 0}
+  .desktop-only{display:none}
+  .hire-visual{display:none}
+  .hire-stats{grid-template-columns:repeat(3,1fr);min-height:0}
+  .hire-home-stats{margin-top:-24px}
+  .hire-stats>div{gap:0;padding:11px 8px;justify-content:center}
+  .hire-stats>div>svg{display:none}
+  .hire-stats>div:nth-child(3){border-right:0}
+  .hire-stats strong{font-size:23px}
+  .hire-stats small{font-size:12px;white-space:nowrap}
+  .hire-sync{grid-column:1/-1;border-top:1px solid var(--border);padding:9px 12px}
+  .hire-directions{padding:38px 0 24px}
+  .hire-section-heading a{font-size:13px}
+  .hire-direction-grid{grid-template-columns:1fr;gap:8px;margin-top:13px}
+  .hire-direction{padding:13px;min-height:0}
+  .hire-direction>div{margin-bottom:5px}
+  .hire-direction h3{margin:4px 0;font-size:18px}
+  .hire-next{align-items:start;flex-direction:column;padding:17px;margin-bottom:34px}
+  .hire-board{padding-block:27px 38px}
+  .hire-board-title{align-items:start;flex-direction:column;gap:10px;margin-bottom:14px}
+  .hire-board-pulse{display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center}
+  .hire-board-pulse small{margin-top:0}
+  .hire-track{margin:11px 0 12px;padding-bottom:10px;gap:2px}
+  .hire-track button{padding-inline:9px;font-size:13px}
+  .hire-board-layout{grid-template-columns:1fr;gap:10px}
+  .hire-filters{grid-template-columns:1fr 1fr;gap:8px;padding:10px}
+  .hire-filter-head,.hire-filter-more,.hire-advanced{grid-column:1/-1}
+  .hire-advanced{grid-template-columns:1fr 1fr}
+  .job-card.hire-role{grid-template-columns:34px minmax(0,1fr);gap:8px;padding:11px;position:relative}
+  .hire-company-mark{width:34px;height:34px;font-size:13px}
+  .hire-role h3,.hire-role-company{padding-right:31px}
+  .hire-role h3{font-size:17px}
+  .hire-role-actions{grid-column:2;flex-direction:row;align-items:center;flex-wrap:wrap;min-width:0}
+  .hire-role-actions .save-button{position:absolute;right:9px;top:9px}
+}
+@media(max-width:360px){.hire-search{padding-left:8px;gap:6px}.hire-search button{padding-inline:8px;font-size:13px}.hire-search button svg{display:none}}
+.hire-track .hire-team-toggle{display:flex;align-items:center;gap:6px;border-color:#c9d9c1}
+.hire-team-toggle span{font-size:12px;min-width:19px;text-align:center;border-radius:12px;background:#e0ecd6;color:#2c5231;padding:1px 4px}
+.hire-team-tag{background:#e9f2df;color:#305832;border-radius:4px;padding:2px 5px;font-size:12px;font-weight:650}
+.hire-ai-form { margin-top: 12px; }
+.hire-ai-reason { margin-top: 8px; line-height: 1.5; }
+.hire-ai-reason span { white-space: normal; }
