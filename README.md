@@ -65,3 +65,7 @@ Favorites use `localStorage` in the current browser only. Clearing browser data 
 默认使用规则匹配。要接入 DeepSeek，在 Sites 服务端运行设置里添加密钥 `DEEPSEEK_API_KEY`，并设置 `AI_SEARCH_DAILY_LIMIT` 为 1–500 的整数。Worker 用 D1 按 UTC 日原子地限制全站模型调用量。未设置额度、额度用完或模型出错时使用规则匹配。
 
 新增搜索和 Worker 请求校验可直接执行 `node --test tests/job-search.test.mjs`。完整网页验证还需执行 `npm ci`、`npm run typecheck`、`npm test` 和 `npm run build`。
+
+## 致谢
+
+OpenAI Codex 协助实现多行业岗位搜索、接入现有岗位卡片并编写测试。
