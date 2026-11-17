@@ -41,7 +41,7 @@ test("a personal Perplexity key uses only the selected provider and skips the si
   const fetch=t.mock.method(globalThis,"fetch",async (url,request)=>{
     assert.equal(url,"https://api.perplexity.ai/search");
     assert.equal(request.headers.Authorization,"Bearer personal-test-key");
-    assert.equal(request.redirect,"error");
+    assert.equal(request.redirect,"manual");
     assert.match(JSON.parse(request.body).query,/财务实习/);
     return Response.json({results:[
       {...result(source),date:"2026-11-17"},
@@ -92,7 +92,7 @@ for (const config of newProviders) {
       const target=new URL(url);
       assert.equal(target.origin+target.pathname,config.endpoint);
       assert.equal(options.headers[config.header],config.prefix+"test-key");
-      assert.equal(options.redirect,"error");
+      assert.equal(options.redirect,"manual");
       if(config.provider==="brave"){
         assert.equal(options.method??"GET","GET");
         assert.match(target.searchParams.get("q"),/财务实习/);

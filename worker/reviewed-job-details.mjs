@@ -24,10 +24,41 @@ const nowcoderDetails = {
   detailsCheckedAt: "2026-11-17",
 };
 
+const agentiDetails = {
+  description:"参与 AgentI 智能体服务平台的产品迭代，从需求整理和竞品调研到原型、验收和上线复盘。",
+  responsibilities:[
+    "汇总用户需求、使用反馈和待改进问题，协助产品负责人安排迭代。",
+    "体验类似的 AI 与智能体产品，记录功能差异、使用体验和行业变化。",
+    "协助编写需求文档、制作基础原型，向设计和研发说明功能需求。",
+    "跟进设计、开发和测试进度，参与功能验收、问题记录与上线复盘。",
+  ],
+  requirements:[
+    "面向在读本科生或研究生，专业不限。",
+    "有基础的文档写作能力，能拆解问题并清楚说明。",
+    "对 AI、大模型和智能体产品感兴趣，愿意主动体验相关产品。",
+    "入职前需签署实习协议，并配合核验在读学籍。",
+  ],
+  preferredQualifications:[
+    "计算机、设计、商科背景优先。",
+    "有产品、运营或项目实践，或使用过原型工具者优先。",
+  ],
+  majorRequirement:"专业不限，计算机、设计和商科相关专业优先",
+  educationText:"本科或研究生在读",
+  internship:"每周可到岗 4–6 天，连续实习 3 个月以上优先",
+  recruitmentNotes:[
+    "需在上海浦东线下实习。正文和平台地址栏列出的具体地点不同，面试前请确认办公地址。",
+    "正文标注日薪 120–150 元，另有每日 20 元餐补和 10 元交通补贴。",
+    "表现优秀者毕业后有优先转正机会。",
+  ],
+  categoryEvidence:"该岗位为智能体服务平台的产品助理，职责集中在需求、竞品、原型和验收，按业务方向归入 AI 应用。",
+  detailsCheckedAt:"2026-11-17",
+};
+
 export function withReviewedDetails(job) {
   if (job.sourceUrl === "https://www.nowcoder.com/jobs/detail/463747" ||
       job.sourceUrl === "https://www.nowcoder.com/jobs/detail/463748") {
     return {...job,...nowcoderDetails};
   }
+  if (job.sourceUrl === "https://www.shixiseng.com/intern/inn_4gf2sw159kpo") return {...job,...agentiDetails};
   return job;
 }

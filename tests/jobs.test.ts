@@ -2,7 +2,9 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {makeJob} from "../worker/sources.mjs";
 import {withReviewedDetails} from "../worker/reviewed-job-details.mjs";
-import {bachelorEligible,getCareerJobs,getJobs,getJob,demoJobs,queryJobs,canApply,jobRecruitmentAction,realJobCount,verifiedJobCount,matchesSearch} from "../lib/jobs";
+import {loadSourceDetails,parseSourceDetails} from "../worker/source-details.mjs";
+import {getTeamJobs} from "../worker/team-sources.mjs";
+import {bachelorEligible,getCareerJobs,getJobs,getJob,demoJobs,queryJobs,canApply,jobRecruitmentAction,realJobCount,verifiedJobCount,matchesSearch,type Job} from "../lib/jobs";
 test("structured education excludes masters and unknown, accepts broader minimums",()=>{
   assert.equal(bachelorEligible("bachelor"),true);assert.equal(bachelorEligible("college"),true);
   assert.equal(bachelorEligible("any"),true);assert.equal(bachelorEligible("master"),false);assert.equal(bachelorEligible("unknown"),null);
@@ -124,4 +126,42 @@ test("reviewed jobs enrich existing snapshots without changing verification or p
   assert.ok("applicationStart" in reviewed&&reviewed.applicationStart==="2026-08-27");
   assert.ok("responsibilities" in reviewed&&reviewed.responsibilities.length===4);
   assert.strictEqual(withReviewedDetails({...job,sourceUrl:"https://example.test/job"}).sourceUrl,"https://example.test/job");
+});
+
+test("source detail excerpts separate internship duties, qualifications and other page sections",async()=>{
+  const canonical="https://www.shixiseng.com/intern/inn_example";
+  const details=await loadSourceDetails(canonical+"?tracking=example",async (url,options)=>{
+    assert.equal(url,canonical);
+    assert.equal(options?.redirect,"manual");
+    return new Response('<div class="job_detail">一、工作职责 1. 整理项目反馈 2. 维护测试文档 二、应聘资格 1. 本科在读 2. 可以按时到岗 实习待遇：另有交通补贴</div>');
+  });
+  assert.deepEqual(details,{responsibilities:["整理项目反馈","维护测试文档"],requirements:["本科在读","可以按时到岗"]});
+  assert.equal(await loadSourceDetails(canonical,async()=>Response.redirect("https://example.test/",302)),null);
+  assert.equal(await loadSourceDetails("https://www.shixiseng.com.example.test/intern/inn_example",async()=>{
+    throw new Error("unsupported domains must never be fetched");
+  }),null);
+});
+
+test("Nowcoder details read separate job sections without collecting surrounding page text",()=>{
+  const html="<div>招聘详情</div><div>岗位职责</div><div>一、岗位职责 1、维护功能接口 2、完善测试覆盖</div><div>岗位要求</div><div>二、任职要求 1、计算机相关专业</div><div>候选人留言</div>";
+  assert.deepEqual(parseSourceDetails("https://www.nowcoder.com/jobs/detail/123",html),{
+    responsibilities:["维护功能接口","完善测试覆盖"],requirements:["计算机相关专业"],
+  });
+});
+
+test("team sync saves source details for both indexed and manually added postings",async()=>{
+  const result=await getTeamJobs(async (url:string)=>{
+    if(url.startsWith("https://www.nowcoder.com/jobs/detail/"))return new Response(
+      "<title>中城交（上海）科技有限公司 Agent开发工程师</title><span>立即申请</span><div>岗位职责</div><div>维护接口</div><div>岗位要求</div><div>本科及以上</div>",
+    );
+    if(url==="https://www.shixiseng.com/intern/inn_epvylk1xkfy5")return new Response(
+      '<div class="job_detail">工作职责：维护接口 任职要求：本科在读</div>',
+    );
+    return new Response(null,{status:503});
+  },"2026-11-17");
+  const jobs:Job[]=result.jobs;
+  assert.deepEqual(jobs.find(job=>job.id==="live-team-nc-463747")?.responsibilities,["维护接口"]);
+  const internship=jobs.find(job=>job.id==="live-team-sxs-inn_epvylk1xkfy5");
+  assert.deepEqual(internship?.responsibilities,["维护接口"]);
+  assert.deepEqual(internship?.requirements,["本科在读"]);
 });

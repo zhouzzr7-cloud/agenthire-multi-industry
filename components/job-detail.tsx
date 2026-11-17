@@ -2,6 +2,7 @@ import Link from "next/link";
 import {ArrowLeft, ArrowUpRight, Info} from "lucide-react";
 import {type Job, bachelorEligible, categories, educationLabels, jobRecruitmentAction, statusLabels} from "@/lib/jobs";
 import {CopyButton, SaveButton} from "@/components/shell";
+import {JobDescriptionSections} from "@/components/job-description-sections";
 
 export function JobDetail({job}:{job:Job}){
   const education=job.educationText??educationLabels[job.education];
@@ -49,20 +50,11 @@ export function JobDetail({job}:{job:Job}){
           <p>{job.description}</p>
           {job.techStack.length>0&&<div className="tags" aria-label="岗位关键词">{job.techStack.map(keyword=><span key={keyword}>{keyword}</span>)}</div>}
         </section>
-        <section>
-          <h2>工作职责</h2>
-          {duties.length?<ul>{duties.map(item=><li key={item}>{item}</li>)}</ul>:<p>{job.recruitmentNoticeUrl?"校招简章公布了岗位方向、学历、专业和工作城市，未逐项列出日常职责。":"当前收录信息未包含具体职责，可在招聘原页查看完整说明。"}</p>}
-        </section>
-        <section>
-          <h2>任职要求</h2>
-          {requirements.length?<ul>{requirements.map(item=><li key={item}>{item}</li>)}</ul>:<p>当前收录信息未包含具体任职要求。</p>}
-          {Boolean(job.preferredQualifications?.length)&&<>
-            <h3>加分项</h3>
-            <ul>{job.preferredQualifications?.map(item=><li key={item}>{item}</li>)}</ul>
-          </>}
-        </section>
+        <JobDescriptionSections sourceUrl={job.status==="demo"||job.status==="closed"?null:job.sourceUrl}
+          responsibilities={duties} requirements={requirements} preferredQualifications={job.preferredQualifications}
+          reviewed={Boolean(job.detailsCheckedAt)||(duties.length>=3&&job.requirements.length>=3)} notice={Boolean(job.recruitmentNoticeUrl)}/>
         {Boolean(job.recruitmentNotes?.length)&&<section>
-          <h2>招聘对象与流程</h2>
+          <h2>{job.internship?"实习补充说明":"招聘对象与流程"}</h2>
           <ul>{job.recruitmentNotes?.map(note=><li key={note}>{note}</li>)}</ul>
         </section>}
         <section>

@@ -56,7 +56,7 @@ function searchTerms(input) {
 
 function searchRequest(provider,query,limit,apiKey) {
   const url = new URL(providerEndpoints[provider]);
-  const options = {redirect:"error",signal:AbortSignal.timeout(9500)};
+  const options = {redirect:"manual",signal:AbortSignal.timeout(9500)};
   if (provider === "brave") {
     url.search = new URLSearchParams({q:query,count:"20",result_filter:"web",text_decorations:"false"}).toString();
     return [url.href,{...options,headers:{"X-Subscription-Token":apiKey,Accept:"application/json"}}];

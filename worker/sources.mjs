@@ -36,10 +36,10 @@ export function parseCities(place){
   return [...new Set(place.split(/[、，,／/]/).map(city=>city.trim().replace(/市$/,"")).filter(Boolean))];
 }
 
-function jobPoints(value){
+export function jobPoints(value){
   if(typeof value!=="string")return [];
   return value.replace(/<\/(?:p|li|div)>|<br\s*\/?>/gi,"\n")
-    .split(/\n|(?<!\d)\d{1,2}[、．]\s*/u)
+    .split(/\n|(?<!\S)\d{1,2}(?:[、．]\s*|\.[ \t]+)/u)
     .map(part=>clean(part).replace(/^[-•\s]+/u,""))
     .filter(Boolean)
     .slice(0,5)

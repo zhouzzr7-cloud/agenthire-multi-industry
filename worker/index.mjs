@@ -2,6 +2,7 @@ import assets from "./assets.mjs";
 import {dedupe,getBaiduJobs,getIndexJobs} from "./sources.mjs";
 import {getTeamJobs} from "./team-sources.mjs";
 import {withReviewedDetails} from "./reviewed-job-details.mjs";
+import {loadSourceDetails} from "./source-details.mjs";
 import {handleCareerSearch,handleWebJobSearch} from "./career-search.mjs";
 import {getCareerJobs,getJobs} from "../lib/jobs.ts";
 
@@ -116,6 +117,14 @@ export default {
       if(url.pathname==="/api/jobs"&&request.method==="GET")return json({
         ...publicFeed(await read(env)),manualRefresh:local,webSearchEnabled:Boolean(env.DEEPSEEK_API_KEY),
       });
+      if(url.pathname==="/api/jobs/source-details"&&request.method==="GET"){
+        const details=await loadSourceDetails(url.searchParams.get("source")).catch(error=>{
+          console.warn("Unable to read public job details",error.message);
+          return null;
+        });
+        if(!details||(!details.responsibilities.length&&!details.requirements.length))return json({error:"source_details_unavailable"},404);
+        return Response.json(details,{headers:{"Cache-Control":"public, max-age=900","X-Content-Type-Options":"nosniff"}});
+      }
       if(url.pathname==="/api/jobs/search"&&request.method==="POST"){
         if(local&&!sameOriginLocal)return json({error:"unauthorized"},403);
         const {status,data}=await handleCareerSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs,sameOriginLocal);

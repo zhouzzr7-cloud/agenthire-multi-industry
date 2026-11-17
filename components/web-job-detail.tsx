@@ -5,6 +5,7 @@ import {useSearchParams} from "next/navigation";
 import {useEffect,useState} from "react";
 import {ArrowLeft, ArrowUpRight, Globe, Info} from "lucide-react";
 import {findStoredWebJob,type WebJob} from "@/lib/web-job-feed";
+import {JobDescriptionSections} from "@/components/job-description-sections";
 
 export function WebJobDetail(){
   const id=useSearchParams().get("id");
@@ -33,7 +34,7 @@ export function WebJobDetail(){
           <strong>在招状态待核实</strong><p>请在招聘原页确认岗位当前是否开放、是否符合投递资格。</p>
         </div></div>
         <section><h2>岗位摘要</h2><p>{job.snippet||"联网结果提供了岗位标题和招聘链接。"}</p></section>
-        <section><h2>工作职责与任职要求</h2><p>联网结果仅提供网页摘要。详细职责、专业和学历要求、工作地点及投递截止时间请查看招聘原页。</p></section>
+        <JobDescriptionSections sourceUrl={job.sourceUrl}/>
         <section>
           <h2>数据来源</h2>
           <dl className="source-grid">

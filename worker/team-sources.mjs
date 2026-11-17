@@ -1,4 +1,5 @@
 import {clean,dedupe,getHtml,makeJob,parseCities} from "./sources.mjs";
+import {loadSourceDetails,parseSourceDetails} from "./source-details.mjs";
 
 const indexOrigin="https://jobs.ivyea.com";
 const priorityCities=["上海","杭州","绍兴"];
@@ -100,19 +101,23 @@ const manualInternships=[
   {key:"inn_ffyynjcku7sc",company:"跨赴科技",title:"Agent 开发实习生",city:"北京",deadline:"2026-11-14",salary:"180–250 元 / 天",internship:"每周 5 天，至少 3 个月",description:"参与码上飞的 Agent 开发和评测，建设工具调用与自动化流程。",duties:"Agent 工具调用 评测",evidence:"https://www.jinglingshuju.com/data/item/19f4c9c708f196a4e71ac93799a95a46"},
 ];
 
-function manualJobs(){
-  return manualInternships.map(role=>{
+async function manualJobs(fetcher,checkedAt){
+  return Promise.all(manualInternships.map(async role=>{
     const url="https://www.shixiseng.com/intern/"+role.key;
     const job=makeJob({
       id:"team-sxs-"+role.key,company:role.company,title:role.title,cities:[role.city],type:"日常实习",
       source:"实习僧 · 企业发布",sourceUrl:url,applyUrl:url,status:"verified",
       checkedAt:manualCheckedAt,keywords:role.duties,requirements:"本科及以上",
     });
+    const details=role.deadline<checkedAt?null:await loadSourceDetails(url,fetcher).catch(()=>null);
     return {...job,description:role.description,deadline:role.deadline,salary:role.salary,internship:role.internship,
+      responsibilities:details?.responsibilities.length?details.responsibilities:job.responsibilities,
+      requirements:details?.requirements.length?details.requirements:job.requirements,
+      detailsCheckedAt:details?.responsibilities.length&&details.requirements.length?checkedAt:undefined,
       teamType:"startup",teamEvidenceUrl:role.evidence??url,companySize:role.companySize??job.companySize,
       verificationNote:"人工复核时原页提供投递入口，具体要求与是否仍有名额请以企业发布页为准。",
     };
-  });
+  }));
 }
 
 async function veloxisJobs(fetcher,checkedAt){
@@ -157,7 +162,11 @@ async function nowcoderJobs(fetcher,checkedAt){
       sourceUrl:url,applyUrl:url,status:"verified",checkedAt,
       keywords:"Agent Harness 工具调用 多智能体 上下文 Python",requirements:"本科及以上",
     });
+    const details=parseSourceDetails(url,html);
     return {...job,companySize:"20 人以下",teamEvidenceUrl:"https://www.zhaopin.com/companydetail/CZL1502106840.htm",
+      responsibilities:details.responsibilities,
+      requirements:details.requirements.length?details.requirements:job.requirements,
+      detailsCheckedAt:details.responsibilities.length&&details.requirements.length?checkedAt:undefined,
       deadline:"2027-08-31",salary:role.salary,salaryMonthly:role.salaryMonthly??null,internship:role.internship??null,
       description:"为交通与城市治理场景开发 Agent，建设任务规划、工具调用和记忆模块。",
       verificationNote:"招聘原页显示可申请。用人单位规模引用智联招聘公司资料。"
@@ -175,6 +184,7 @@ export async function getTeamJobs(fetcher,checkedAt){
     nowcoderJobs(fetcher,checkedAt),
   ]);
   if(results.every(result=>result.status==="rejected"))throw new Error("中小与创业团队招聘源无法读取");
-  const jobs=dedupe([...results.flatMap(result=>result.status==="fulfilled"?result.value.jobs:[]),...manualJobs()]);
+  const curated=await manualJobs(fetcher,checkedAt);
+  const jobs=dedupe([...results.flatMap(result=>result.status==="fulfilled"?result.value.jobs:[]),...curated]);
   return {jobs,partial:results.some(result=>result.status==="rejected"||result.value.partial)};
 }
