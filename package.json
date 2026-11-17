@@ -6,7 +6,7 @@
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "next build --webpack && node scripts/pack-worker.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts && node --test tests/web-jobs.test.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

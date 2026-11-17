@@ -6,6 +6,7 @@ import {ArrowRight,Sparkles} from "lucide-react";
 import {getCareerJobs,getJobs,type Job} from "@/lib/jobs";
 import {searchSiteJobs,type JobSearchResult} from "@/lib/job-search.mjs";
 import {JobCard} from "./job-card";
+import {WebJobResults} from "./web-job-results";
 
 export function AIJobSearchForm({query=""}:{query?:string}){
   return <form action="/jobs/" className="hire-search hire-ai-form" role="search" aria-label="自然语言岗位搜索">
@@ -62,6 +63,7 @@ export function AIJobSearch({query,liveJobs}:{query:string;liveJobs:Job[]}){
       </div>
       <AIJobSearchForm key={query} query={query}/>
     </section>
+    <WebJobResults key={query} query={query}/>
     <section className="hire-results" aria-label="岗位匹配结果" aria-busy={!result}>
       {!result?<p className="hire-empty" role="status">正在匹配岗位…</p>:<>
         <div className="hire-results-bar" aria-live="polite">

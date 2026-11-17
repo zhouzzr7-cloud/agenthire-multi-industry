@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {useEffect, useState} from "react";
-import {Activity, ArrowUpRight, BriefcaseBusiness, GraduationCap} from "lucide-react";
+import {Activity, ArrowUpRight, BriefcaseBusiness, GraduationCap, RefreshCw} from "lucide-react";
 import {getJobs, isOpenJob, recruitmentTrack, type Job} from "@/lib/jobs";
 
 interface Feed {
@@ -10,26 +10,31 @@ interface Feed {
   refreshedAt: string | null;
   added: number;
   partial: boolean;
+  manualRefresh?: boolean;
+  webSearchEnabled?: boolean;
 }
 
 const fallback: Feed = {jobs: [], refreshedAt: null, added: 0, partial: false};
 let feedRequest: Promise<Feed> | undefined;
 
 function fetchFeed(){
-  feedRequest ??= fetch("/api/jobs", {cache:"no-cache"})
+  if(feedRequest)return feedRequest;
+  const request=fetch("/api/jobs", {cache:"no-cache"})
     .then(response => {
       if (!response.ok) throw new Error("岗位列表暂不可用");
       return response.json() as Promise<Feed>;
     }).catch(error => {
-      feedRequest = undefined;
+      if(feedRequest===request)feedRequest=undefined;
       throw error;
     });
-  return feedRequest;
+  feedRequest=request;
+  return request;
 }
 
 export function useLiveJobs(){
   const [feed,setFeed] = useState(fallback);
   const [state,setState] = useState<"loading"|"ready"|"error">("loading");
+  const [generation,setGeneration]=useState(0);
   useEffect(() => {
     let active = true;
     fetchFeed().then(
@@ -37,17 +42,56 @@ export function useLiveJobs(){
       () => { if(active)setState("error"); },
     );
     return () => {active=false;};
-  },[]);
-  return {feed, state, jobs: [...getJobs(), ...feed.jobs]};
+  },[generation]);
+  function reload(){
+    feedRequest=undefined;
+    setGeneration(value=>value+1);
+  }
+  return {feed, state, jobs: [...getJobs(), ...feed.jobs],reload};
 }
 
 export function RefreshLabel({feed,state}:{feed:Feed; state:string}){
-  if (!feed.refreshedAt) return <span>{state==="loading"?"正在读取更新记录":state==="error"?"自动岗位暂不可用":"等待首次自动同步"}</span>;
+  if (!feed.refreshedAt) return <span>{state==="loading"?"正在读取更新记录":state==="error"?"自动岗位暂不可用":feed.manualRefresh?"尚未同步":"等待首次自动同步"}</span>;
   const time = new Intl.DateTimeFormat("zh-CN",{
     timeZone:"Asia/Shanghai", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false,
   }).format(new Date(feed.refreshedAt));
   const stale = Date.now() - new Date(feed.refreshedAt).getTime() > 36*60*60*1000;
   return <span>{feed.partial?"部分来源待更新 · ":stale?"更新延迟 · ":"最近同步 "}{time}</span>;
+}
+
+export function RefreshJobsButton({onRefresh}:{onRefresh:()=>void}){
+  const [busy,setBusy]=useState(false);
+  const [message,setMessage]=useState("");
+
+  async function refresh(){
+    setBusy(true);
+    setMessage("");
+    try{
+      const response=await fetch("/api/refresh",{method:"POST",signal:AbortSignal.timeout(180_000)});
+      const data=await response.json();
+      if(!response.ok)throw new Error();
+      if(data.result==="already_current"){
+        setMessage("刚同步过，请隔 10 分钟再刷新。");
+      }else if(data.result==="refreshed"||data.result==="partially_refreshed"){
+        const prefix=data.result==="partially_refreshed"?"部分来源未更新，已保留可用岗位":"同步完成";
+        setMessage(prefix+(data.added>0?" · 新增 "+data.added+" 条":" · 没有新增岗位"));
+      }else{
+        throw new Error();
+      }
+      onRefresh();
+    }catch{
+      setMessage("同步失败，已保留现有岗位。请稍后重试。");
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  return <div>
+    <button type="button" className="hire-apply" onClick={refresh} disabled={busy}>
+      <RefreshCw size={15} aria-hidden="true"/> {busy?"正在同步…":"刷新岗位"}
+    </button>
+    <small role="status">{message}</small>
+  </div>;
 }
 
 export function LiveSummary({home=false}:{home?:boolean}){

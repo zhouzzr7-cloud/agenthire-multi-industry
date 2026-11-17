@@ -194,3 +194,28 @@ footer{background:#edf0e7;color:#374938;border-color:var(--border)}
 .hire-ai-form { margin-top: 12px; }
 .hire-ai-reason { margin-top: 8px; line-height: 1.5; }
 .hire-ai-reason span { white-space: normal; }
+.hire-web-results,.hire-refresh-settings{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:clamp(14px,2vw,22px)}
+.hire-web-results{margin:16px 0 20px}
+.hire-web-toolbar,.hire-web-heading{display:flex;align-items:center;gap:12px}
+.hire-web-toolbar{justify-content:space-between;flex-wrap:wrap}
+.hire-web-heading h2{font-size:17px;line-height:1.35;color:var(--text)}
+.hire-web-heading p,.hire-web-card .hire-web-snippet{color:var(--muted);font-size:13px;line-height:1.6;margin-top:4px}
+.hire-web-card .hire-web-snippet{overflow-wrap:anywhere}
+.hire-web-results .hire-role-list{margin-top:10px}
+.hire-web-results .button,.hire-refresh-actions .button{min-height:40px;padding-inline:12px;gap:7px;font-size:14px}
+.hire-web-status{display:flex;align-items:flex-start;gap:7px;margin-top:12px;font-size:14px;line-height:1.55;color:var(--muted)}
+.hire-web-status svg{margin-top:3px}
+.hire-web-warning,.hire-web-success{border:1px solid var(--border);border-radius:8px;padding:9px 11px}
+.hire-web-warning{background:#fbf5e8;border-color:#eadbb3;color:#72561e}
+.hire-web-success{background:#eaf3e3;border-color:#d6e4ce;color:var(--accent)}
+.hire-refresh-settings{max-width:900px}
+.hire-refresh-fields{display:grid;grid-template-columns:1fr 1.6fr minmax(135px,.7fr);gap:14px;border:0;padding:0;margin:20px 0;min-width:0}
+.hire-refresh-fields input{width:100%;min-height:40px;border:1px solid var(--border);background:#f8faf6;border-radius:7px;padding:6px 10px;font-size:14px}
+.hire-refresh-actions,.hire-board-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.hire-refresh-actions{justify-content:flex-end;border-top:1px solid var(--border);padding-top:15px}
+.hire-board-tools{margin-top:12px}
+@media(max-width:700px){
+  .hire-refresh-fields{grid-template-columns:minmax(0,1fr)}
+  .hire-refresh-actions{justify-content:flex-start}
+  .hire-web-card .hire-role-company,.hire-web-card h3{padding-right:0}
+}

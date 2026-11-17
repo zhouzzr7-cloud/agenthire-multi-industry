@@ -60,12 +60,12 @@ Favorites use `localStorage` in the current browser only. Clearing browser data 
 - 刷新后重新读取岗位接口，核对时间和条数。最近成功同步不足 18 小时会返回 `already_current`，全量来源失败返回 503 并保留上次快照。
 ### 多行业岗位搜索
 
-首页和岗位页提供「AI 找岗位」，支持用一句话查询 AI Agent、财会、运营和制造岗位。Worker 通过 `POST /api/jobs/search` 返回与现有岗位卡片对应的 ID 和匹配理由。结果使用站内已收录的岗位及原始招聘入口，实时搜索全网尚未接入。
+首页和岗位页提供「AI 找岗位」，支持用一句话查询 AI Agent、财会、运营和制造岗位。Worker 通过 `POST /api/jobs/search` 返回站内岗位的 ID 和匹配理由。「联网找岗位」通过 `POST /api/jobs/web-search` 补充外部招聘原页，外部结果标注在招状态待确认。
 
-默认使用规则匹配。要接入 DeepSeek，在 Sites 服务端运行设置里添加密钥 `DEEPSEEK_API_KEY`，并设置 `AI_SEARCH_DAILY_LIMIT` 为 1–500 的整数。Worker 用 D1 按 UTC 日原子地限制全站模型调用量。未设置额度、额度用完或模型出错时使用规则匹配。
+联网搜索从 Worker 环境读取 `DEEPSEEK_API_KEY`。「联网刷新设置」将搜索条件和刷新结果保存在当前浏览器。「最多显示的岗位数」控制浏览器保留的结果数量。
 
-新增搜索和 Worker 请求校验可直接执行 `node --test tests/job-search.test.mjs`。完整网页验证还需执行 `npm ci`、`npm run typecheck`、`npm test` 和 `npm run build`。
+托管环境可用 `AI_SEARCH_DAILY_LIMIT`（1–500）为站内模型解析和联网搜索设置共用的每日调用上限。省略此设置时，站内搜索使用规则匹配，联网搜索由 DeepSeek API 处理。DeepSeek 返回余额不足时，页面会明确显示账户余额提示。
 
-## 致谢
+本地运行时，在项目根目录的 `.env` 中配置 `DEEPSEEK_API_KEY`，然后执行 `npm run build` 和 `npx wrangler dev --local`。打开 Wrangler 输出的本地地址，即可从岗位页进入「联网刷新设置」。
 
-OpenAI Codex 协助实现多行业岗位搜索、接入现有岗位卡片并编写测试。
+运行 `npm test` 和 `node --test tests/job-search.test.mjs` 验证搜索与 Worker 请求。执行 `npm run build` 后可运行 `npm run typecheck` 检查类型。

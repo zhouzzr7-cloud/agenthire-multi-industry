@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import {test} from "node:test";
+import {findWebJobs} from "../worker/web-jobs.mjs";
+import {handleWebJobSearch} from "../worker/career-search.mjs";
+
+const source="https://www.shixiseng.com/intern/inn_demo";
+const result=(url,title="绍兴财务实习生",snippet="招聘本科在读实习生")=>({url,title,snippet,site_name:"实习平台"});
+
+test("web search requests real provider results and only exposes recruitment URLs",async()=>{
+  const rows=await findWebJobs({
+    query:"绍兴财务实习，手机13812345678",apiKey:"test",
+    knownUrls:["https://shixiseng.com/intern/inn_known?utm_source=feed"],
+    fetchImpl:async(url,request)=>{
+      assert.equal(url,"https://api.deepseek.com/v1/tools/search");
+      assert.equal(request.headers.Authorization,"Bearer test");
+      const body=JSON.parse(request.body);
+      assert.equal(body.count,40);
+      assert.match(body.query,/绍兴财务实习/);
+      assert.doesNotMatch(body.query,/13812345678/);
+      return Response.json({results:[
+        result(source+"?utm_source=x"),
+        result(source+"?from=recommend"),
+        result("https://www.shixiseng.com/intern/inn_known?pcm=test"),
+        result("https://www.shixiseng.com/intern/inn_closed","绍兴运营实习","该职位已结束招聘"),
+        result("https://jobs.example.com/job/123"),
+        result("https://www.shixiseng.com/"),
+        result("http://www.shixiseng.com/intern/inn_insecure"),
+        result("https://jobs.example.edu.cn/detail/job?id=23","工艺工程师校招"),
+      ]});
+    },
+  });
+  assert.deepEqual(rows.map(row=>row.sourceUrl),[source,"https://jobs.example.edu.cn/detail/job?id=23"]);
+});
+
+test("unusable or failed provider responses are reported",async()=>{
+  await assert.rejects(findWebJobs({query:"绍兴",apiKey:"test",fetchImpl:async()=>new Response("",{status:502})}));
+  await assert.rejects(findWebJobs({query:"绍兴",apiKey:"test",fetchImpl:async()=>Response.json({error:"not a result"})}));
+});
+
+test("custom limit can exceed the legacy cap and is bounded before reserving quota",async()=>{
+  const rows=await findWebJobs({
+    query:"绍兴",apiKey:"test",limit:37,
+    fetchImpl:async(_url,request)=>{
+      assert.equal(JSON.parse(request.body).count,40);
+      return Response.json({results:Array.from({length:40},(_,i)=>result(source+i))});
+    },
+  });
+  assert.equal(rows.length,37);
+  const request=new Request("https://example.test/api/jobs/web-search",{method:"POST",body:JSON.stringify({query:"绍兴",limit:51})});
+  assert.deepEqual(await handleWebJobSearch(request,{},[],async()=>[]),{status:400,data:{error:"invalid_limit"}});
+});
+
+test("web endpoint does not call the live feed when key or quota is unavailable",async()=>{
+  const request=()=>new Request("https://example.test/api/jobs/web-search",{method:"POST",body:JSON.stringify({query:"绍兴"})});
+  const live=async()=>{assert.fail("must not fetch a feed");};
+  assert.deepEqual(await handleWebJobSearch(request(),{},[],live),{status:503,data:{error:"key_missing"}});
+  assert.deepEqual(await handleWebJobSearch(request(),{DEEPSEEK_API_KEY:"test",AI_SEARCH_DAILY_LIMIT:"invalid"},[],live),{status:503,data:{error:"quota_not_configured"}});
+  assert.deepEqual(await handleWebJobSearch(request(),{DEEPSEEK_API_KEY:"test",AI_SEARCH_DAILY_LIMIT:"20"},[],live),{status:503,data:{error:"quota_storage_unavailable"}});
+  const DB={prepare(){return {
+    bind(_day,limit){assert.equal(limit,20);return this;},
+    run:async()=>({meta:{changes:0}}),
+  };}};
+  assert.deepEqual(await handleWebJobSearch(request(),{DEEPSEEK_API_KEY:"test",AI_SEARCH_DAILY_LIMIT:"20",DB},[],live),{status:429,data:{error:"quota_exhausted"}});
+});
+
+test("web search without a site limit reports the provider balance response",async t=>{
+  t.mock.method(globalThis,"fetch",async()=>new Response("",{status:402}));
+  const request=new Request("http://127.0.0.1:8787/api/jobs/web-search",{method:"POST",body:JSON.stringify({query:"绍兴"})});
+  const result=await handleWebJobSearch(request,{DEEPSEEK_API_KEY:"test"},[],async()=>[]);
+  assert.deepEqual(result,{status:402,data:{error:"deepseek_balance_insufficient"}});
+});
