@@ -37,6 +37,19 @@ test("unusable or failed provider responses are reported",async()=>{
   await assert.rejects(findWebJobs({query:"绍兴",apiKey:"test",fetchImpl:async()=>Response.json({error:"not a result"})}));
 });
 
+test("custom limit can exceed the legacy cap and is bounded before reserving quota",async()=>{
+  const rows=await findWebJobs({
+    query:"绍兴",apiKey:"test",limit:37,
+    fetchImpl:async(_url,request)=>{
+      assert.equal(JSON.parse(request.body).count,40);
+      return Response.json({results:Array.from({length:40},(_,i)=>result(source+i))});
+    },
+  });
+  assert.equal(rows.length,37);
+  const request=new Request("https://example.test/api/jobs/web-search",{method:"POST",body:JSON.stringify({query:"绍兴",limit:51})});
+  assert.deepEqual(await handleWebJobSearch(request,{},[],async()=>[]),{status:400,data:{error:"invalid_limit"}});
+});
+
 test("web endpoint does not call the live feed when key or quota is unavailable",async()=>{
   const request=()=>new Request("https://example.test/api/jobs/web-search",{method:"POST",body:JSON.stringify({query:"绍兴"})});
   const live=async()=>{assert.fail("must not fetch a feed");};

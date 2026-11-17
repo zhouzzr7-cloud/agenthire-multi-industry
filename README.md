@@ -70,7 +70,7 @@ Favorites use `localStorage` in the current browser only. Clearing browser data 
 
 在本地 Wrangler 的 `wrangler.toml` 添加 `[vars]` 和 `AGENTHIRE_LOCAL_REFRESH = "1"`（已有 `[vars]` 时只加变量），并保持 Worker 监听回环地址。打开岗位页即可刷新站内同步来源。成功同步后，本地手动入口设有 10 分钟间隔。线上计划任务继续通过原有签名刷新。
 
-岗位页的「联网刷新设置」支持按城市、岗位关键词和显示数量搜索外部招聘页。设置保存在当前浏览器。外部结果保留原页链接，使用同一个 DeepSeek 每日调用额度。
+从岗位页进入独立的「联网刷新设置」页面，填写城市、岗位关键词和 1–50 的显示条数。点击「刷新并查看岗位」后，外部结果去重并合入主岗位列表。设置及结果都保存在当前浏览器，外部卡片链接到招聘原页，使用同一个 DeepSeek 每日调用额度。
 
 ## 致谢
 

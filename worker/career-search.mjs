@@ -19,8 +19,8 @@ async function readQuery(request){
       }
       raw+=decoder.decode(value,{stream:true});
     }
-    const query=JSON.parse(raw+decoder.decode())?.query;
-    return typeof query==="string"&&query.trim()&&query.length<=240?query.trim():null;
+    const {query,limit}=JSON.parse(raw+decoder.decode())??{};
+    return typeof query==="string"&&query.trim()&&query.length<=240?{query:query.trim(),limit}:null;
   }catch{
     return null;
   }finally{
@@ -44,23 +44,26 @@ async function reserveModelRequest(env){
 }
 
 export async function handleCareerSearch(request,env,records,liveRecords){
-  const query=await readQuery(request);
-  if(!query)return {status:400,data:{error:"invalid_query"}};
+  const input=await readQuery(request);
+  if(!input)return {status:400,data:{error:"invalid_query"}};
   const live=await liveRecords().catch(()=>[]);
   const useModel=await reserveModelRequest(env);
-  const data=await searchSiteJobs(query,[...records,...live],useModel?{apiKey:env.DEEPSEEK_API_KEY}:{});
+  const data=await searchSiteJobs(input.query,[...records,...live],useModel?{apiKey:env.DEEPSEEK_API_KEY}:{});
   return {status:200,data};
 }
 
 export async function handleWebJobSearch(request,env,records,liveRecords){
-  const query=await readQuery(request);
-  if(!query)return {status:400,data:{error:"invalid_query"}};
+  const input=await readQuery(request);
+  if(!input)return {status:400,data:{error:"invalid_query"}};
+  if(input.limit!==undefined&&(!Number.isInteger(input.limit)||input.limit<1||input.limit>50)){
+    return {status:400,data:{error:"invalid_limit"}};
+  }
   if(!env.DEEPSEEK_API_KEY)return {status:503,data:{error:"key_missing"}};
   if(!await reserveModelRequest(env))return {status:429,data:{error:"quota_unavailable"}};
   const live=await liveRecords().catch(()=>[]);
   const knownUrls=[...records,...live].flatMap(job=>[job.sourceUrl,job.applyUrl]).filter(Boolean);
   try{
-    return {status:200,data:{matches:await findWebJobs({query,apiKey:env.DEEPSEEK_API_KEY,knownUrls})}};
+    return {status:200,data:{matches:await findWebJobs({query:input.query,limit:input.limit,apiKey:env.DEEPSEEK_API_KEY,knownUrls})}};
   }catch{
     return {status:502,data:{error:"web_search_unavailable"}};
   }

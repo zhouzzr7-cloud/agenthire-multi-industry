@@ -37,7 +37,7 @@ function searchTerms(input) {
     .replace(/\s+/gu, " ").trim()).slice(0, 84).join("");
 }
 
-export async function findWebJobs({query,apiKey,knownUrls=[],fetchImpl=fetch}) {
+export async function findWebJobs({query,apiKey,knownUrls=[],limit=24,fetchImpl=fetch}) {
   const terms = searchTerms(query);
   if (!terms) return [];
   const publishedAfter = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
@@ -47,7 +47,7 @@ export async function findWebJobs({query,apiKey,knownUrls=[],fetchImpl=fetch}) {
     signal:AbortSignal.timeout(9500),
     body:JSON.stringify({
       query:terms + " 招聘 职位 after:" + publishedAfter,
-      count:40,
+      count:Math.min(50,Math.max(40,limit)),
       need_content:false,
     }),
   });
@@ -70,7 +70,7 @@ export async function findWebJobs({query,apiKey,knownUrls=[],fetchImpl=fetch}) {
     const source = shortText(result.site_name, 72) || url.hostname;
     matches.push({title,snippet,publishedAt,source,sourceUrl:url.href,hostname:url.hostname});
     seen.add(key);
-    if (matches.length === 24) break;
+    if (matches.length >= limit) break;
   }
   return matches;
 }
