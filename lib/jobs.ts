@@ -74,6 +74,14 @@ export function recruitmentTrack(job: Job){
   return "social";
 }
 export function canApply(job: Job) { return job.status !== "demo" && job.status !== "closed" && !!job.applyUrl && /^https:\/\//.test(job.applyUrl); }
+export function jobRecruitmentAction(job: Job) {
+  if (job.status === "demo" || job.status === "closed") return null;
+  const applicationUrl = canApply(job) ? job.applyUrl : null;
+  if (applicationUrl && job.status === "verified") return {url:applicationUrl,label:"前往原站投递"};
+  if (applicationUrl && applicationUrl !== job.sourceUrl) return {url:applicationUrl,label:"查看投递页面"};
+  if (job.sourceUrl?.startsWith("https://")) return {url:job.sourceUrl,label:"查看招聘原页"};
+  return null;
+}
 export function realJobCount() { return jobs.filter(j => j.status !== "demo" && j.status !== "closed").length; }
 export function verifiedJobCount() { return jobs.filter(j=>j.status==="verified").length; }
 export function getFeaturedJobs() { return queryJobs(new URLSearchParams()).slice(0,4); }

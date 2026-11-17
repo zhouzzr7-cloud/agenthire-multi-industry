@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {ArrowLeft, ArrowUpRight, Info} from "lucide-react";
-import {type Job, bachelorEligible, canApply, categories, educationLabels, statusLabels} from "@/lib/jobs";
+import {type Job, bachelorEligible, categories, educationLabels, jobRecruitmentAction, statusLabels} from "@/lib/jobs";
 import {CopyButton, SaveButton} from "@/components/shell";
 
 export function JobDetail({job}:{job:Job}){
@@ -13,6 +13,7 @@ export function JobDetail({job}:{job:Job}){
     ...(job.internship?[`实习安排：${job.internship}`]:[]),
   ];
   const undergraduate=bachelorEligible(job.education);
+  const recruitmentAction=jobRecruitmentAction(job);
   const applicationWindow=job.applicationStart&&job.deadline?`${job.applicationStart} 至 ${job.deadline}`:null;
   const statusHeading={
     demo:"演示岗位",closed:"该岗位已关闭",verified:"原站投递入口已核验",unverified:"在招状态待核实",
@@ -94,8 +95,9 @@ export function JobDetail({job}:{job:Job}){
         <div className="detail-salary">{job.salary??"薪资未提供"}</div>
         {job.salary&&<span className="small-copy">{job.status==="demo"?"演示薪资":"薪资按招聘原页口径展示"}</span>}
         <dl>{jobFacts.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-        {canApply(job)?<a className="button primary" href={job.applyUrl!} target="_blank" rel="noopener noreferrer">{job.status==="unverified"?"查看招聘原页":"前往原站投递"} <ArrowUpRight size={16} aria-hidden="true"/></a>:<div className="unavailable">{job.status==="closed"?"已关闭 · 暂停投递":job.status==="demo"?"演示岗位 · 暂无投递入口":"投递入口待核实"}</div>}
-        {canApply(job)&&job.alternateApplyUrl&&<a className="button secondary" href={job.alternateApplyUrl} target="_blank" rel="noopener noreferrer">企业校园招聘入口 ↗</a>}
+        {recruitmentAction?<a className="button primary" href={recruitmentAction.url} target="_blank" rel="noopener noreferrer">{recruitmentAction.label} <ArrowUpRight size={16} aria-hidden="true"/></a>:<div className="unavailable">{job.status==="closed"?"已关闭 · 暂停投递":job.status==="demo"?"演示岗位 · 暂无投递入口":"暂无招聘原页链接"}</div>}
+        {job.status==="unverified"&&recruitmentAction&&<p className="small-copy">请在原页确认当前是否接受投递。</p>}
+        {recruitmentAction&&job.alternateApplyUrl&&<a className="button secondary" href={job.alternateApplyUrl} target="_blank" rel="noopener noreferrer">企业校园招聘入口 ↗</a>}
         <SaveButton id={job.id} full/>
         <CopyButton/>
         <p className="small-copy">收藏保存在当前浏览器。</p>

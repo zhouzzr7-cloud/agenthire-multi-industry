@@ -2,7 +2,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {makeJob} from "../worker/sources.mjs";
 import {withReviewedDetails} from "../worker/reviewed-job-details.mjs";
-import {bachelorEligible,getCareerJobs,getJobs,getJob,demoJobs,queryJobs,canApply,realJobCount,verifiedJobCount,matchesSearch} from "../lib/jobs";
+import {bachelorEligible,getCareerJobs,getJobs,getJob,demoJobs,queryJobs,canApply,jobRecruitmentAction,realJobCount,verifiedJobCount,matchesSearch} from "../lib/jobs";
 test("structured education excludes masters and unknown, accepts broader minimums",()=>{
   assert.equal(bachelorEligible("bachelor"),true);assert.equal(bachelorEligible("college"),true);
   assert.equal(bachelorEligible("any"),true);assert.equal(bachelorEligible("master"),false);assert.equal(bachelorEligible("unknown"),null);
@@ -37,6 +37,16 @@ test("DEMO records have no application URLs and never count as real jobs",()=>{
   assert.equal(canApply({...getJobs()[0],status:"verified",applyUrl:"https://example.org/jobs/1"}),true);
   assert.equal(canApply({...getJobs()[0],status:"closed",applyUrl:"https://example.org/jobs/1"}),false);
   assert.equal(canApply({...getJobs()[0],status:"verified",applyUrl:"javascript:alert(1)"}),false);
+});
+test("unverified jobs with a source link can open it without claiming verified applications",()=>{
+  const job={...getJobs()[0],status:"unverified" as const,applyUrl:null,sourceUrl:"https://example.test/recruitment"};
+  assert.deepEqual(jobRecruitmentAction(job),{url:job.sourceUrl,label:"查看招聘原页"});
+  assert.equal(canApply(job),false);
+  assert.equal(jobRecruitmentAction({...job,sourceUrl:null}),null);
+  assert.equal(jobRecruitmentAction({...job,status:"closed"}),null);
+  assert.equal(jobRecruitmentAction({...job,status:"demo"}),null);
+  assert.deepEqual(jobRecruitmentAction({...job,applyUrl:"https://example.test/apply"}),{url:"https://example.test/apply",label:"查看投递页面"});
+  assert.deepEqual(jobRecruitmentAction({...job,status:"verified",applyUrl:"https://example.test/apply"}),{url:"https://example.test/apply",label:"前往原站投递"});
 });
 test("salary sorting compares only monthly figures; unknown and daily salaries come last",()=>{
  const results=queryJobs(new URLSearchParams("sort=salary"));
