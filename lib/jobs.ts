@@ -18,6 +18,9 @@ export interface Job {
   deadline?: string; alternateApplyUrl?: string; cities?: string[]; live?: boolean;
   teamType?: "startup"; teamEvidenceUrl?: string;
   majorRequirement?: string;
+  preferredQualifications?: string[];
+  applicationStart?: string;
+  detailsCheckedAt?: string;
 }
 export const categories: Record<Category, { name: string; short: string; tech: string; description: string }> = {
   "agent-application": { name: "AI 应用开发", short: "AI 应用", tech: "LangGraph · RAG · MCP · Multi-Agent", description: "把模型能力，变成真正有用的产品。" },

@@ -36,6 +36,16 @@ export function parseCities(place){
   return [...new Set(place.split(/[、，,／/]/).map(city=>city.trim().replace(/市$/,"")).filter(Boolean))];
 }
 
+function jobPoints(value){
+  if(typeof value!=="string")return [];
+  return value.replace(/<\/(?:p|li|div)>|<br\s*\/?>/gi,"\n")
+    .split(/\n|(?<!\d)\d{1,2}[、．]\s*/u)
+    .map(part=>clean(part).replace(/^[-•\s]+/u,""))
+    .filter(Boolean)
+    .slice(0,5)
+    .map(part=>part.length>180?part.slice(0,179)+"…":part);
+}
+
 function eligibility(text){
   const degree=text.match(/本科及以上|本科或研究生|本科(?:学历|在读)|硕士及以上|硕士(?:学历|在读)|硕博在读|博士在读|学历不限/);
   if(!degree) return "unknown";
@@ -46,20 +56,21 @@ function eligibility(text){
   return "master";
 }
 
-export function makeJob({id, company, title, cities, type, source, sourceUrl, status, duties="", requirements="", publishedAt=null, graduationYear=null, checkedAt, applyUrl=null, indexedAt=null}){
-  const text = [title,duties,requirements].join(" ");
+export function makeJob({id, company, title, cities, type, source, sourceUrl, status, duties="", requirements="", keywords="", publishedAt=null, graduationYear=null, checkedAt, applyUrl=null, indexedAt=null}){
+  const requirementText=typeof requirements==="string"?clean(requirements):"";
+  const text = clean([title,duties,requirements,keywords].join(" "));
   const tags = technology.filter(([,pattern])=>pattern.test(text)).map(([label])=>label);
-  const isAgentInfra = infra.test(title)||/开发.{0,15}(?:运行时|沙箱|执行引擎|Agent Harness)|构建.{0,18}(?:Agent Harness|调度框架|沙箱执行)/i.test(duties);
+  const isAgentInfra = infra.test(title)||/开发.{0,15}(?:运行时|沙箱|执行引擎|Agent Harness)|构建.{0,18}(?:Agent Harness|调度框架|沙箱执行)/i.test([duties,keywords].join(" "));
   const category = isAgentInfra?"agent-infra":modelInfra.test(title)?"ai-infra":"agent-application";
   const specialty = isAgentInfra?"Runtime / Harness":category==="ai-infra"?"模型服务":/coding agent|代码智能体/i.test(title)?"Coding Agent":"Agent 开发";
   return {
     id:"live-"+id,live:true,company,initials:company.slice(0,2),title,city:cities.join(" / "),cities,
     primaryCategory:category,relatedCategories:[],specialty,salary:null,salaryMonthly:null,
-    education:eligibility(requirements),companySize:"规模未公开",recruitmentType:type,
+    education:eligibility(requirementText),companySize:"规模未公开",recruitmentType:type,
     graduationYear,techStack:tags.slice(0,8),
     description:company+"在"+cities.join("、")+"发布的"+type+"岗位。岗位职责和具体资格可在招聘原页查看。",
-    responsibilities:tags.length?["原文涉及 "+tags.slice(0,6).join("、")+"。"]:[ ],
-    requirements:[],
+    responsibilities:jobPoints(duties),
+    requirements:jobPoints(requirements),
     categoryEvidence:"按职位标题和公开职责中的工程关键词归类。",
     freshGraduate:type==="校园招聘"?true:null,noExperience:false,remote:cities.includes("远程"),
     internship:null,publishedAt,updatedAt:indexedAt??checkedAt,sourceCheckedAt:checkedAt,lastVerifiedAt:status==="verified"?checkedAt:null,
@@ -141,7 +152,7 @@ function sectionText(html,id){
   const marker='id="'+id+'"';
   const index=html.indexOf(marker);
   if(index===-1)return "";
-  return clean(html.slice(index,html.indexOf("</section>",index)).replace(/^.*?<\/h2>/s,""));
+  return html.slice(index,html.indexOf("</section>",index)).replace(/^.*?<\/h2>/s,"");
 }
 
 export async function getIndexJobs(fetcher,checkedAt){

@@ -59,11 +59,11 @@ function officialJob(html,row,checkedAt){
   const datePosted=/^\d{4}-\d{2}-\d{2}$/.test(data.datePosted??"")?data.datePosted:null;
   const year=row.title.match(/(?:20)?(2\d)\s*届/)?.[1];
   const type=row.track==="校招"?"校园招聘":row.track==="实习"||row.title.includes("实习")?"日常实习":"社会招聘";
-  const requirements=clean(html.match(/<h3>任职要求<\/h3>([\s\S]*?)<\/article>/)?.[1]??"");
+  const requirements=html.match(/<h3>任职要求<\/h3>([\s\S]*?)(?:<h3>|<\/article>)/)?.[1]??"";
   const job=makeJob({
     id:"team-ivy-"+row.id,company:row.company[1],title:row.title,cities:row.cities,type,
     source:"Ivyea Jobs · 企业官网职位",sourceUrl:link.href,status:"unverified",
-    checkedAt,indexedAt:row.indexedAt,duties:data.description??clean(html.match(/<h3>职位描述<\/h3>([\s\S]*?)(?:<h3>|<\/article>)/)?.[1]??""),requirements,
+    checkedAt,indexedAt:row.indexedAt,duties:data.description??html.match(/<h3>职位描述<\/h3>([\s\S]*?)(?:<h3>|<\/article>)/)?.[1]??"",requirements,
     publishedAt:datePosted,graduationYear:year?2000+Number(year):null,
   });
   return {...job,companySize:row.company[3]??job.companySize,teamType:"startup",teamEvidenceUrl:row.company[2],verificationNote:"招聘索引提供职位对应的官网页面，开放状态与资格请在官网确认。"};
@@ -106,7 +106,7 @@ function manualJobs(){
     const job=makeJob({
       id:"team-sxs-"+role.key,company:role.company,title:role.title,cities:[role.city],type:"日常实习",
       source:"实习僧 · 企业发布",sourceUrl:url,applyUrl:url,status:"verified",
-      checkedAt:manualCheckedAt,duties:role.duties,requirements:"本科及以上",
+      checkedAt:manualCheckedAt,keywords:role.duties,requirements:"本科及以上",
     });
     return {...job,description:role.description,deadline:role.deadline,salary:role.salary,internship:role.internship,
       teamType:"startup",teamEvidenceUrl:role.evidence??url,companySize:role.companySize??job.companySize,
@@ -127,7 +127,7 @@ async function veloxisJobs(fetcher,checkedAt){
     const job=makeJob({
       id:"team-veloxis-"+id,company:"微路智能",title,cities:["杭州"],type,
       source:"微路智能官网",sourceUrl:url,applyUrl:site+"/apply/",status:"verified",checkedAt,
-      duties:"NPU Runtime 算子融合 IR 模型部署",
+      keywords:"NPU Runtime 算子融合 IR 模型部署",
     });
     return {...job,primaryCategory:"ai-infra",specialty:"模型服务",teamType:"startup",
       teamEvidenceUrl:site+"/company.html",
@@ -155,7 +155,7 @@ async function nowcoderJobs(fetcher,checkedAt){
     const job=makeJob({
       ...role,id:"team-nc-"+role.id,company,cities:["上海"],source:"牛客 · 企业招聘账号",
       sourceUrl:url,applyUrl:url,status:"verified",checkedAt,
-      duties:"Agent Harness 工具调用 多智能体 上下文 Python",requirements:"本科及以上",
+      keywords:"Agent Harness 工具调用 多智能体 上下文 Python",requirements:"本科及以上",
     });
     return {...job,companySize:"20 人以下",teamEvidenceUrl:"https://www.zhaopin.com/companydetail/CZL1502106840.htm",
       deadline:"2027-08-31",salary:role.salary,salaryMonthly:role.salaryMonthly??null,internship:role.internship??null,

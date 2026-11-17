@@ -1,6 +1,7 @@
 import assets from "./assets.mjs";
 import {dedupe,getBaiduJobs,getIndexJobs} from "./sources.mjs";
 import {getTeamJobs} from "./team-sources.mjs";
+import {withReviewedDetails} from "./reviewed-job-details.mjs";
 import {handleCareerSearch,handleWebJobSearch} from "./career-search.mjs";
 import {getCareerJobs,getJobs} from "../lib/jobs.ts";
 
@@ -23,7 +24,7 @@ async function read(env){
 
 function publicFeed(snapshot,now=Date.now()){
   const today=shanghaiDate.format(now);
-  const jobs=dedupe(Object.values(snapshot.groups).flatMap(({jobs,at})=>jobs.map(job=>{
+  const jobs=dedupe(Object.values(snapshot.groups).flatMap(({jobs,at})=>jobs.map(withReviewedDetails).map(job=>{
     if(job.deadline&&job.deadline<today){
       return {...job,status:"closed",applyUrl:null,lastVerifiedAt:null,verificationNote:"原招聘页公布的申请截止日期已过。"};
     }

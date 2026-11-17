@@ -131,6 +131,10 @@ footer{background:#edf0e7;color:#374938;border-color:var(--border)}
 .detail-header h1,.detail-salary,.detail-content h2,.about-grid h2,.infra-topics h2{color:#1b3321}
 .detail-header p,.detail-content p,.detail-content li,.detail-sidebar dt,.detail-sidebar dd,.source-grid dt,.source-grid dd,.small-copy,.demo-banner p,.match-grid>div>span,.match-grid strong,.about-grid p,.about-lead,.infra-page-intro,.infra-topics p,.infra-principle p,.page-intro p{color:#4d6050!important}
 .detail-sidebar,.demo-banner,.unavailable{background:#fff;color:#38513a}
+.detail-content h3{margin:20px 0 8px;font-size:16px}
+.match-grid,.match-grid>div{border-color:var(--border)}
+.match-grid dt{color:var(--muted);flex:none}
+.match-grid dd{color:var(--text);margin:0;text-align:right;font-weight:650}
 .company-mark,.company-mark.large{background:#e4efdc;color:#36573b;border-color:#cedcc9}
 .tags>span,.tags>span.category-tag{background:#edf3e7;color:#365638;border-color:#d8e3d5}
 .back-link,.infra-topics svg{color:#355d3a}

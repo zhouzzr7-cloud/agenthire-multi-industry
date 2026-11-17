@@ -1,5 +1,7 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
+import {makeJob} from "../worker/sources.mjs";
+import {withReviewedDetails} from "../worker/reviewed-job-details.mjs";
 import {bachelorEligible,getCareerJobs,getJobs,getJob,demoJobs,queryJobs,canApply,realJobCount,verifiedJobCount,matchesSearch} from "../lib/jobs";
 test("structured education excludes masters and unknown, accepts broader minimums",()=>{
   assert.equal(bachelorEligible("bachelor"),true);assert.equal(bachelorEligible("college"),true);
@@ -89,4 +91,27 @@ test("team filter includes known small employers and sourced startups",()=>{
   const rows=[unknown,small,large,startup];
   assert.deepEqual(queryJobs(new URLSearchParams("team=1&track=campus&city=杭州"),rows).map(job=>job.id),["small","startup"]);
   assert.deepEqual(queryJobs(new URLSearchParams(),rows).slice(0,2).map(job=>job.id),["small","startup"]);
+});
+
+test("synchronized jobs retain separate duties and requirements from the source",()=>{
+  const base={id:"test",company:"示例企业",title:"开发工程师",cities:["上海"],type:"校园招聘",
+    source:"企业招聘",sourceUrl:"https://example.test/job",status:"unverified",checkedAt:"2026-11-17"};
+  const job=makeJob({...base,duties:"<ul><li>设计服务接口</li><li>完善故障监控</li></ul>",requirements:"1、本科及以上 2、熟悉 Python"});
+  assert.deepEqual(job.responsibilities,["设计服务接口","完善故障监控"]);
+  assert.deepEqual(job.requirements,["本科及以上","熟悉 Python"]);
+  assert.equal(job.education,"bachelor");
+  const keywordOnly=makeJob({...base,keywords:"Python",requirements:"本科及以上"});
+  assert.deepEqual(keywordOnly.responsibilities,[]);
+  assert.deepEqual(keywordOnly.techStack,["Python"]);
+});
+
+test("reviewed jobs enrich existing snapshots without changing verification or publication",()=>{
+  const job={sourceUrl:"https://www.nowcoder.com/jobs/detail/463747",status:"unverified",lastVerifiedAt:null,publishedAt:null};
+  const reviewed=withReviewedDetails(job);
+  assert.equal(reviewed.status,job.status);
+  assert.equal(reviewed.lastVerifiedAt,null);
+  assert.equal(reviewed.publishedAt,null);
+  assert.ok("applicationStart" in reviewed&&reviewed.applicationStart==="2026-08-27");
+  assert.ok("responsibilities" in reviewed&&reviewed.responsibilities.length===4);
+  assert.strictEqual(withReviewedDetails({...job,sourceUrl:"https://example.test/job"}).sourceUrl,"https://example.test/job");
 });
