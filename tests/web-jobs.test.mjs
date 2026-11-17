@@ -54,5 +54,18 @@ test("web endpoint does not call the live feed when key or quota is unavailable"
   const request=()=>new Request("https://example.test/api/jobs/web-search",{method:"POST",body:JSON.stringify({query:"绍兴"})});
   const live=async()=>{assert.fail("must not fetch a feed");};
   assert.deepEqual(await handleWebJobSearch(request(),{},[],live),{status:503,data:{error:"key_missing"}});
-  assert.deepEqual(await handleWebJobSearch(request(),{DEEPSEEK_API_KEY:"test"},[],live),{status:429,data:{error:"quota_unavailable"}});
+  assert.deepEqual(await handleWebJobSearch(request(),{DEEPSEEK_API_KEY:"test"},[],live),{status:503,data:{error:"quota_not_configured"}});
+  assert.deepEqual(await handleWebJobSearch(request(),{DEEPSEEK_API_KEY:"test",AI_SEARCH_DAILY_LIMIT:"20"},[],live),{status:503,data:{error:"quota_storage_unavailable"}});
+  const DB={prepare(){return {
+    bind(_day,limit){assert.equal(limit,20);return this;},
+    run:async()=>({meta:{changes:0}}),
+  };}};
+  assert.deepEqual(await handleWebJobSearch(request(),{DEEPSEEK_API_KEY:"test",AI_SEARCH_DAILY_LIMIT:"20",DB},[],live),{status:429,data:{error:"quota_exhausted"}});
+});
+
+test("local search uses provider limits and reports the provider balance response",async t=>{
+  t.mock.method(globalThis,"fetch",async()=>new Response("",{status:402}));
+  const request=new Request("http://127.0.0.1:8787/api/jobs/web-search",{method:"POST",body:JSON.stringify({query:"绍兴"})});
+  const result=await handleWebJobSearch(request,{DEEPSEEK_API_KEY:"test"},[],async()=>[],true);
+  assert.deepEqual(result,{status:402,data:{error:"deepseek_balance_insufficient"}});
 });

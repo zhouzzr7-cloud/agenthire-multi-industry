@@ -12,8 +12,13 @@ type State =
   | {status:"error";message:string};
 
 const errors: Record<string,string> = {
-  key_missing:"请先在 Worker 中配置 DeepSeek API Key。",
-  quota_unavailable:"联网额度已用完或未配置。站内岗位仍可查看。",
+  key_missing:"请在 Worker 的 .env 中配置 DEEPSEEK_API_KEY，然后重启 Wrangler。",
+  quota_not_configured:"此部署尚未开启联网搜索。",
+  quota_exhausted:"此站点今天的联网次数已用完，北京时间每天 08:00 重置。",
+  quota_storage_unavailable:"此站点暂时无法读取联网额度，请稍后重试。",
+  deepseek_balance_insufficient:"DeepSeek API 账户余额不足。请到 DeepSeek 开放平台检查余额。",
+  deepseek_key_rejected:"DeepSeek 拒绝了当前 API Key。请检查 .env 后重启 Wrangler。",
+  deepseek_rate_limited:"DeepSeek 请求太频繁，请稍后重试。",
   web_search_unavailable:"联网搜索暂时不可用，请稍后再试。",
   invalid_limit:"请输入 1 到 50 之间的整数。",
 };

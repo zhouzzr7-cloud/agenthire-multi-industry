@@ -109,20 +109,23 @@ function staticPage(request,url){
 export default {
   async fetch(request,env){
     const url = new URL(request.url);
+    const local=canRefreshLocally(url,env);
+    const sameOriginLocal=local&&request.headers.get("Origin")===url.origin;
     try{
-      if(url.pathname==="/api/jobs"&&request.method==="GET")return json({...publicFeed(await read(env)),manualRefresh:canRefreshLocally(url,env)});
+      if(url.pathname==="/api/jobs"&&request.method==="GET")return json({...publicFeed(await read(env)),manualRefresh:local});
       if(url.pathname==="/api/jobs/search"&&request.method==="POST"){
-        const {status,data}=await handleCareerSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs);
+        if(local&&!sameOriginLocal)return json({error:"unauthorized"},403);
+        const {status,data}=await handleCareerSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs,sameOriginLocal);
         return json(data,status);
       }
       if(url.pathname==="/api/jobs/web-search"&&request.method==="POST"){
-        const {status,data}=await handleWebJobSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs);
+        if(local&&!sameOriginLocal)return json({error:"unauthorized"},403);
+        const {status,data}=await handleWebJobSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs,sameOriginLocal);
         return json(data,status);
       }
       if(url.pathname==="/api/refresh"&&request.method==="POST"){
-        const manual=canRefreshLocally(url,env)&&request.headers.get("Origin")===url.origin;
-        if(!manual&&!await authorized(request,env))return json({error:"unauthorized"},403);
-        return await refresh(env,manual);
+        if(!sameOriginLocal&&!await authorized(request,env))return json({error:"unauthorized"},403);
+        return await refresh(env,sameOriginLocal);
       }
       if(url.pathname.startsWith("/api/"))return json({error:"not_found"},404);
       if(request.method!=="GET"&&request.method!=="HEAD")return new Response(null,{status:405,headers:{Allow:"GET, HEAD"}});

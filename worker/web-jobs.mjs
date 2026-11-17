@@ -28,6 +28,13 @@ function normalizeUrl(value) {
 const urlKey = url => url.hostname.replace(/^www\./u, "") + url.pathname.replace(/\/$/u, "") + url.search;
 const shortText = (value, length) => typeof value === "string" ? value.replace(/\s+/gu, " ").trim().slice(0, length) : "";
 
+export class WebSearchHttpError extends Error {
+  constructor(status){
+    super("web_search_provider_failed");
+    this.status=status;
+  }
+}
+
 function searchTerms(input) {
   return Array.from(input.normalize("NFKC")
     .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/gu, " ")
@@ -51,7 +58,7 @@ export async function findWebJobs({query,apiKey,knownUrls=[],limit=24,fetchImpl=
       need_content:false,
     }),
   });
-  if (!response.ok) throw new Error("web_search_provider_failed");
+  if (!response.ok) throw new WebSearchHttpError(response.status);
   const {results} = await response.json();
   if (!Array.isArray(results)) throw new Error("web_search_invalid_response");
 
