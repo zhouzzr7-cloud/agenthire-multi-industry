@@ -66,6 +66,12 @@ Favorites use `localStorage` in the current browser only. Clearing browser data 
 
 新增搜索和 Worker 请求校验可直接执行 `node --test tests/job-search.test.mjs`。完整网页验证还需执行 `npm ci`、`npm run typecheck`、`npm test` 和 `npm run build`。
 
+## 本地手动刷新
+
+在本地 Wrangler 的 `wrangler.toml` 添加 `[vars]` 和 `AGENTHIRE_LOCAL_REFRESH = "1"`（已有 `[vars]` 时只加变量），并保持 Worker 监听回环地址。打开岗位页即可刷新站内同步来源。成功同步后，本地手动入口设有 10 分钟间隔。线上计划任务继续通过原有签名刷新。
+
+岗位页的「联网刷新设置」支持按城市、岗位关键词和显示数量搜索外部招聘页。设置保存在当前浏览器。外部结果保留原页链接，使用同一个 DeepSeek 每日调用额度。
+
 ## 致谢
 
 OpenAI Codex 协助实现多行业岗位搜索、接入现有岗位卡片并编写测试。

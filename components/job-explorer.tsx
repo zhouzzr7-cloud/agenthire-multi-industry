@@ -6,8 +6,9 @@ import Link from "next/link";
 import {ArrowRight, Bookmark, Search, SlidersHorizontal, X} from "lucide-react";
 import {bachelorEligible, educationLabels, getCareerJobs, isOpenJob, isTeamOpportunity, jobCities, queryJobs, statusLabels} from "@/lib/jobs";
 import {AIJobSearch,AIJobSearchForm} from "./ai-job-search";
+import {WebJobResults} from "./web-job-results";
 import {JobCard} from "./job-card";
-import {RefreshLabel,useLiveJobs} from "./live-jobs";
+import {RefreshJobsButton,RefreshLabel,useLiveJobs} from "./live-jobs";
 import {useFavorites} from "./shell";
 
 const pageSize=20;
@@ -21,7 +22,7 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
   const [advanced,setAdvanced]=useState(false);
   const [limit,setLimit]=useState(pageSize);
   const {ids,ready}=useFavorites();
-  const {jobs,feed,state}=useLiveJobs();
+  const {jobs,feed,state,reload}=useLiveJobs();
   useEffect(()=>{
     setParams(new URLSearchParams(searchParams.toString()));
     setLimit(pageSize);
@@ -59,11 +60,19 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
       <p className="hire-overline">{favorites?"YOUR SHORTLIST":"THE OPPORTUNITY INDEX"}</p>
       <div className="hire-board-title">
         <div><h1>{favorites?"我的收藏":"探索岗位"}</h1><p>{favorites?"把想投递的机会留在这里。":"找 Agent 应用、Harness、Runtime 和 AI 基础设施机会。"}</p></div>
-        {!favorites&&<div className="hire-board-pulse"><span><i/><RefreshLabel feed={feed} state={state}/></span><small>{active.length} 条岗位 · {active.filter(job=>bachelorEligible(job.education)===true).length} 条本科可投</small></div>}
+        {!favorites&&<div className="hire-board-pulse">
+          <span><i/><RefreshLabel feed={feed} state={state}/></span>
+          <small>{active.length} 条岗位 · {active.filter(job=>bachelorEligible(job.education)===true).length} 条本科可投</small>
+          {feed.manualRefresh&&<RefreshJobsButton onRefresh={reload}/>}
+        </div>}
       </div>
       <div className="hire-search hire-board-search"><Search size={21}/><input aria-label="搜索岗位" placeholder="搜索职位、公司、城市或技术栈" value={get("q")} onChange={event=>change("q",event.target.value)}/>{get("q")&&<button type="button" className="hire-search-clear" aria-label="清空搜索" onClick={()=>change("q","")}><X size={18}/></button>}</div>
       {!favorites&&<AIJobSearchForm/>}
     </section>
+    {!favorites&&feed.manualRefresh&&<details className="hire-refresh-panel">
+      <summary>联网刷新设置</summary>
+      <WebJobResults configurable/>
+    </details>}
     <div className="hire-track" aria-label="快速筛选">{tracks.map(([value,label])=><button type="button" aria-pressed={get("track")===value} key={label} onClick={()=>change("track",value)}>{label}</button>)}<button className="hire-team-toggle" type="button" aria-pressed={get("team")==="1"} onClick={()=>change("team",get("team")==="1"?"":"1")}>中小与创业团队 <span>{teamCount}</span></button></div>
     <div className="hire-board-layout">
       <aside className="hire-filters">
