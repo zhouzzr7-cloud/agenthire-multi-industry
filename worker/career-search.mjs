@@ -19,8 +19,8 @@ async function readQuery(request){
       }
       raw+=decoder.decode(value,{stream:true});
     }
-    const {query,limit}=JSON.parse(raw+decoder.decode())??{};
-    return typeof query==="string"&&query.trim()&&query.length<=240?{query:query.trim(),limit}:null;
+    const {query,limit,provider,apiKey}=JSON.parse(raw+decoder.decode())??{};
+    return typeof query==="string"&&query.trim()&&query.length<=240?{query:query.trim(),limit,provider,apiKey}:null;
   }catch{
     return null;
   }finally{
@@ -61,17 +61,26 @@ export async function handleWebJobSearch(request,env,records,liveRecords,local=f
   if(input.limit!==undefined&&(!Number.isInteger(input.limit)||input.limit<1||input.limit>50)){
     return {status:400,data:{error:"invalid_limit"}};
   }
-  const reservation=await reserveModelRequest(env,local,{requireLimit:false});
-  if(reservation!=="reserved")return {status:reservation==="quota_exhausted"?429:503,data:{error:reservation}};
+  const personalSearch=input.provider!==undefined||input.apiKey!==undefined;
+  const provider=input.provider??"deepseek";
+  let apiKey=env.DEEPSEEK_API_KEY;
+  if(personalSearch){
+    if(input.provider!=="deepseek"&&input.provider!=="perplexity")return {status:400,data:{error:"invalid_provider"}};
+    if(typeof input.apiKey!=="string"||!/^[!-~]{1,512}$/.test(input.apiKey.trim()))return {status:400,data:{error:"invalid_api_key"}};
+    apiKey=input.apiKey.trim();
+  }else{
+    const reservation=await reserveModelRequest(env,local,{requireLimit:false});
+    if(reservation!=="reserved")return {status:reservation==="quota_exhausted"?429:503,data:{error:reservation}};
+  }
   const live=await liveRecords().catch(()=>[]);
   const knownUrls=[...records,...live].flatMap(job=>[job.sourceUrl,job.applyUrl]).filter(Boolean);
   try{
-    return {status:200,data:{matches:await findWebJobs({query:input.query,limit:input.limit,apiKey:env.DEEPSEEK_API_KEY,knownUrls})}};
+    return {status:200,data:{matches:await findWebJobs({query:input.query,limit:input.limit,apiKey,provider,knownUrls})}};
   }catch(error){
     if(error instanceof WebSearchHttpError){
-      if(error.status===402)return {status:402,data:{error:"deepseek_balance_insufficient"}};
-      if(error.status===401)return {status:502,data:{error:"deepseek_key_rejected"}};
-      if(error.status===429)return {status:429,data:{error:"deepseek_rate_limited"}};
+      if(error.status===402)return {status:402,data:{error:`${provider}_balance_insufficient`}};
+      if(error.status===401||error.status===403)return {status:502,data:{error:`${provider}_key_rejected`}};
+      if(error.status===429)return {status:429,data:{error:`${provider}_rate_limited`}};
     }
     return {status:502,data:{error:"web_search_unavailable"}};
   }

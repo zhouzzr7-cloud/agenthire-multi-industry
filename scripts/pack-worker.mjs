@@ -14,9 +14,11 @@ const assets=Object.create(null);
 async function scan(dir,relative=""){
   for(const item of await readdir(dir,{withFileTypes:true})){
     const path=join(dir,item.name);
-    const key=relative+"/"+item.name;
-    if(item.isDirectory())await scan(path,key);
+    const assetPath=relative+"/"+item.name;
+    if(item.isDirectory())await scan(path,assetPath);
     else if(!item.name.endsWith(".map")){
+      // Windows exports some segment payloads as nested files. Next's client requests dotted names.
+      const key=assetPath.replace(/\/(__next\.[^/]+(?:\/[^/]+)+\.txt)$/u,(_,segment)=>"/"+segment.replaceAll("/","."));
       assets[key]=[types[extname(item.name)]??"application/octet-stream",gzipSync(await readFile(path)).toString("base64")];
     }
   }

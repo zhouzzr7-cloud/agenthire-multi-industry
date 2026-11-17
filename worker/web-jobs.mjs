@@ -44,19 +44,27 @@ function searchTerms(input) {
     .replace(/\s+/gu, " ").trim()).slice(0, 84).join("");
 }
 
-export async function findWebJobs({query,apiKey,knownUrls=[],limit=24,fetchImpl=fetch}) {
+export async function findWebJobs({query,apiKey,provider="deepseek",knownUrls=[],limit=24,fetchImpl=fetch}) {
   const terms = searchTerms(query);
   if (!terms) return [];
   const publishedAfter = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
-  const response = await fetchImpl("https://api.deepseek.com/v1/tools/search", {
+  const perplexity = provider === "perplexity";
+  const endpoint = perplexity ? "https://api.perplexity.ai/search" : "https://api.deepseek.com/v1/tools/search";
+  const body = perplexity ? {
+    query: terms + " 招聘 职位",
+    max_results: 20,
+    search_domain_filter: ["shixiseng.com","nowcoder.com","zhipin.com","liepin.com","jobs.feishu.cn","edu.cn","ncss.cn","talent.baidu.com","careers.tencent.com","jobs.meituan.com","jobs.bytedance.com","talent.antgroup.com"],
+  } : {
+    query: terms + " 招聘 职位 after:" + publishedAfter,
+    count: Math.min(50,Math.max(40,limit)),
+    need_content: false,
+  };
+  const response = await fetchImpl(endpoint, {
     method:"POST",
     headers:{Authorization:"Bearer " + apiKey,"Content-Type":"application/json"},
+    redirect:"error",
     signal:AbortSignal.timeout(9500),
-    body:JSON.stringify({
-      query:terms + " 招聘 职位 after:" + publishedAfter,
-      count:Math.min(50,Math.max(40,limit)),
-      need_content:false,
-    }),
+    body:JSON.stringify(body),
   });
   if (!response.ok) throw new WebSearchHttpError(response.status);
   const {results} = await response.json();
@@ -73,7 +81,7 @@ export async function findWebJobs({query,apiKey,knownUrls=[],limit=24,fetchImpl=
     const title = shortText(result.title, 160);
     const snippet = shortText(result.snippet, 220);
     if (!title || /招聘会汇总|求职经验|招聘攻略|已停止接受|该岗位已关闭|该职位已下线|该职位已结束招聘/u.test(title + snippet)) continue;
-    const publishedAt = typeof result.date==="string"&&/^\d{4}-\d{2}-\d{2}T/u.test(result.date)?result.date.slice(0,10):null;
+    const publishedAt = typeof result.date==="string"&&/^\d{4}-\d{2}-\d{2}(?:T|$)/u.test(result.date)?result.date.slice(0,10):null;
     const source = shortText(result.site_name, 72) || url.hostname;
     matches.push({title,snippet,publishedAt,source,sourceUrl:url.href,hostname:url.hostname});
     seen.add(key);

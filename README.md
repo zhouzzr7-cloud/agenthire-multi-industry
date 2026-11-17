@@ -1,6 +1,6 @@
 # AgentHire
 
-Agent Application / Agent Infrastructure career platform.
+多行业校招与实习搜索，涵盖计算机与 AI、财会、运营和制造。
 
 ## Run
 
@@ -22,9 +22,9 @@ The production build exports `out/`. Upload this directory to a static host supp
 - Jobs search, structured education checks, combined filters, URL state, four sort modes.
 - Static detail pages for every known job.
 - Local favorites, mobile filter drawer, reduced motion and keyboard support.
-- Agent Infra topic page and data transparency page.
+- Career direction shortcuts, category filters and source verification details.
 
-The default collection contains eight real-source recruiting records checked on 2026-10-20. Two have a visible application entry plus a published unexpired application window; six retain an explicit unverified-current-status label and individual verification notes. Two confirmed closed records and the nine original DEMO records are accessible through their status filters. No source availability is presented as an employer guarantee.
+The job board combines curated listings with the latest synchronized feed. Status filters also expose closed and demo records. Check the original listing for current availability and application requirements.
 
 Every real record retains its source URL, source-check date, application destination, and classification evidence. Missing fields remain unknown. Daily and foreign-currency salaries are not converted into monthly rates. Public application links lead to the original recruiting page or the application form explicitly named in the announcement; no application is submitted by AgentHire.
 
@@ -62,7 +62,7 @@ Favorites use `localStorage` in the current browser only. Clearing browser data 
 
 首页和岗位页提供「AI 找岗位」，支持用一句话查询 AI Agent、财会、运营和制造岗位。Worker 通过 `POST /api/jobs/search` 返回站内岗位的 ID 和匹配理由。「联网找岗位」通过 `POST /api/jobs/web-search` 补充外部招聘原页，外部结果标注在招状态待确认。
 
-联网搜索从 Worker 环境读取 `DEEPSEEK_API_KEY`。「联网刷新设置」将搜索条件和刷新结果保存在当前浏览器。「最多显示的岗位数」控制浏览器保留的结果数量。
+「联网刷新设置」可使用站点的 `DEEPSEEK_API_KEY`，也可选择 DeepSeek 或 Perplexity 并填写自己的 API Key。个人 Key 仅在当前浏览器标签页的会话中保存，搜索时由 Worker 转交给所选服务商，使用该 Key 所属账户的额度。选择「使用站点配置」并保存可清除个人 Key。搜索条件和刷新结果保存在当前浏览器，「最多显示的岗位数」控制浏览器保留的结果数量。
 
 托管环境可用 `AI_SEARCH_DAILY_LIMIT`（1–500）为站内模型解析和联网搜索设置共用的每日调用上限。省略此设置时，站内搜索使用规则匹配，联网搜索由 DeepSeek API 处理。DeepSeek 返回余额不足时，页面会明确显示账户余额提示。
 

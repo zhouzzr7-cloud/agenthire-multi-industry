@@ -20,13 +20,14 @@ export interface Job {
   majorRequirement?: string;
 }
 export const categories: Record<Category, { name: string; short: string; tech: string; description: string }> = {
-  "agent-application": { name: "Agent Application", short: "Agent App", tech: "LangGraph · RAG · MCP · Multi-Agent", description: "把模型能力，变成真正有用的产品。" },
-  "agent-infra": { name: "Agent Infrastructure", short: "Agent Infra", tech: "Harness · Runtime · Sandbox · Orchestration", description: "构建让智能体可靠运行的底层系统。" },
-  "ai-infra": { name: "AI Infrastructure", short: "AI Infra", tech: "LLM Serving · vLLM · Kubernetes", description: "为智能应用提供高效、稳定的算力基础。" },
+  "agent-application": { name: "AI 应用开发", short: "AI 应用", tech: "LangGraph · RAG · MCP · Multi-Agent", description: "把模型能力，变成真正有用的产品。" },
+  "agent-infra": { name: "智能体系统工程", short: "智能体系统", tech: "Harness · Runtime · Sandbox · Orchestration", description: "构建让智能体可靠运行的底层系统。" },
+  "ai-infra": { name: "AI 基础设施", short: "AI 基础设施", tech: "LLM Serving · vLLM · Kubernetes", description: "为智能应用提供高效、稳定的算力基础。" },
   finance: { name: "财会", short: "财会", tech: "会计 · 税务 · 审计", description: "财务、会计和审计方向。" },
   operations: { name: "运营", short: "运营", tech: "内容 · 用户 · 新媒体", description: "内容和用户运营方向。" },
   manufacturing: { name: "制造", short: "制造", tech: "设备 · 工艺 · 质量", description: "制造和机械工程方向。" },
 };
+export const technologyCategories: readonly Category[] = ["agent-application", "agent-infra", "ai-infra"];
 export const educationLabels: Record<Education, string> = { bachelor: "本科及以上", college: "大专及以上", master: "硕士及以上", any: "学历不限", unknown: "学历待核实", highschool:"含高中 / 本科在读" };
 export const statusLabels: Record<JobStatus, string> = { verified: "投递入口已核验", unverified: "在招待核实", closed: "已关闭", demo: "DEMO" };
 type Seed = Pick<Job, "id" | "company" | "initials" | "title" | "city" | "primaryCategory" | "specialty" | "techStack" | "education" | "companySize" | "recruitmentType" | "graduationYear" | "responsibilities" | "requirements"> & Partial<Job>;
@@ -81,11 +82,12 @@ export function matchesSearch(job: Job, query: string) {
 }
 export function queryJobs(params: URLSearchParams, records: Job[] = jobs, now = new Date()) {
   const get = (key:string) => params.get(key) ?? "";
+  const category = get("category");
   const list = records.filter(j => {
     // Closed and demo records require an explicit status selection.
     if (!get("status") && (j.status==="demo" || j.status==="closed")) return false;
     if (!matchesSearch(j,get("q"))) return false;
-    if (get("category") && j.primaryCategory !== get("category")) return false;
+    if (category === "technology" ? !technologyCategories.includes(j.primaryCategory) : category && j.primaryCategory !== category) return false;
     if (get("city") === "其他" ? jobCities(j).every(city=>priorityCities.includes(city)) : get("city") && !jobCities(j).includes(get("city"))) return false;
     if (get("education") === "eligible" ? bachelorEligible(j.education) !== true : get("education") && j.education !== get("education")) return false;
     if (get("size") && j.companySize !== get("size")) return false;

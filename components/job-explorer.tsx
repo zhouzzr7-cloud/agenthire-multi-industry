@@ -4,7 +4,7 @@ import {useSearchParams} from "next/navigation";
 import {useEffect, useState} from "react";
 import Link from "next/link";
 import {ArrowRight, Bookmark, Search, Settings, SlidersHorizontal, X} from "lucide-react";
-import {bachelorEligible, educationLabels, getCareerJobs, isOpenJob, isTeamOpportunity, jobCities, queryJobs, statusLabels} from "@/lib/jobs";
+import {bachelorEligible, categories, educationLabels, isOpenJob, isTeamOpportunity, jobCities, priorityCities, queryJobs, statusLabels, technologyCategories} from "@/lib/jobs";
 import {AIJobSearch,AIJobSearchForm} from "./ai-job-search";
 import {WebJobCard} from "./web-job-results";
 import {matchesWebJob,readWebJobs,webJobKey,type WebJob} from "@/lib/web-job-feed";
@@ -14,8 +14,13 @@ import {useFavorites} from "./shell";
 
 const pageSize=20;
 const tracks=[["","全部岗位"],["internship","实习"],["campus","校招"],["social","全职 / 社招"]];
-const featuredCities=["上海","杭州","绍兴"];
-const categoryNames={"agent-application":"Agent 应用","agent-infra":"Agent 基础设施","ai-infra":"AI 基础设施"};
+const categoryOptions=[
+  ["technology","计算机与 AI"],
+  ["finance",categories.finance.name],
+  ["operations",categories.operations.name],
+  ["manufacturing",categories.manufacturing.name],
+  ...technologyCategories.map(key=>[key,categories[key].name]),
+];
 
 export function JobExplorer({favorites=false}:{favorites?:boolean}){
   const searchParams=useSearchParams();
@@ -41,7 +46,7 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
     };
   },[favorites,searchParams]);
 
-  const records=favorites?[...jobs,...getCareerJobs()].filter(job=>ids.includes(job.id)):jobs;
+  const records=favorites?jobs.filter(job=>ids.includes(job.id)):jobs;
   const matched=queryJobs(params,records);
   const knownUrls=new Set(records.filter(isOpenJob).flatMap(job=>[webJobKey(job.sourceUrl),webJobKey(job.applyUrl)]));
   const external=favorites?[]:webJobs.filter(job=>!knownUrls.has(webJobKey(job.sourceUrl)));
@@ -50,13 +55,24 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
     ...matchedExternal.map(job=>({type:"web" as const,job,salary:-1,published:job.publishedAt,updated:job.fetchedAt})),
     ...matched.map(job=>({type:"site" as const,job,salary:job.salaryMonthly??-1,published:job.publishedAt,updated:job.updatedAt})),
   ];
+  if(!favorites&&params.size===0){
+    // Give each available direction one spot before the rest of the default results.
+    const leadingJobs=new Map<string,string>();
+    for(const job of matched){
+      const direction=technologyCategories.includes(job.primaryCategory)?"technology":job.primaryCategory;
+      if(!leadingJobs.has(direction))leadingJobs.set(direction,job.id);
+    }
+    const leadingIds=new Set(leadingJobs.values());
+    const rank=(result:typeof results[number])=>Number(result.type==="site"&&leadingIds.has(result.job.id));
+    results.sort((a,b)=>rank(b)-rank(a));
+  }
   const stamp=(date:string|null|undefined)=>Date.parse(date??"")||0;
   if(params.get("sort")==="salary")results.sort((a,b)=>b.salary-a.salary||(a.type===b.type?0:a.type==="site"?-1:1));
   if(params.get("sort")==="newest")results.sort((a,b)=>stamp(b.published)-stamp(a.published));
   if(params.get("sort")==="updated")results.sort((a,b)=>stamp(b.updated)-stamp(a.updated));
   const active=records.filter(isOpenJob);
   const teamCount=active.filter(isTeamOpportunity).length;
-  const otherCities=Array.from(new Set(active.flatMap(jobCities))).filter(city=>!featuredCities.includes(city)).sort((a,b)=>a.localeCompare(b,"zh"));
+  const otherCities=Array.from(new Set(active.flatMap(jobCities))).filter(city=>!priorityCities.includes(city)).sort((a,b)=>a.localeCompare(b,"zh"));
   const sizes=Array.from(new Set(jobs.map(job=>job.companySize)));
   const years=Array.from(new Set(jobs.flatMap(job=>job.graduationYear?[String(job.graduationYear)]:[]))).sort();
   const specialties=Array.from(new Set(jobs.map(job=>job.specialty)));
@@ -81,17 +97,16 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
 
   return <div className="container hire-board">
     <section className="hire-board-head">
-      <p className="hire-overline">{favorites?"YOUR SHORTLIST":"THE OPPORTUNITY INDEX"}</p>
       <div className="hire-board-title">
-        <div><h1>{favorites?"我的收藏":"探索岗位"}</h1><p>{favorites?"把想投递的机会留在这里。":"找 Agent 应用、Harness、Runtime 和 AI 基础设施机会。"}</p></div>
+        <div><h1>{favorites?"我的收藏":"探索岗位"}</h1>{!favorites&&<p>按岗位方向、城市和学历筛选校招与实习机会。</p>}</div>
         {!favorites&&<div className="hire-board-pulse">
           <span><i/><RefreshLabel feed={feed} state={state}/></span>
           <small>{active.length+external.length} 条岗位 · {active.filter(job=>bachelorEligible(job.education)===true).length} 条本科可投</small>
         </div>}
       </div>
-      <div className="hire-search hire-board-search"><Search size={21}/><input aria-label="搜索岗位" placeholder="搜索职位、公司、城市或技术栈" value={get("q")} onChange={event=>change("q",event.target.value)}/>{get("q")&&<button type="button" className="hire-search-clear" aria-label="清空搜索" onClick={()=>change("q","")}><X size={18}/></button>}</div>
+      <div className="hire-search hire-board-search"><Search size={21} aria-hidden="true"/><input aria-label="搜索岗位" placeholder="搜索职位、公司、城市或技能" value={get("q")} onChange={event=>change("q",event.target.value)}/>{get("q")&&<button type="button" className="hire-search-clear" aria-label="清空搜索" onClick={()=>change("q","")}><X size={18}/></button>}</div>
       {!favorites&&<AIJobSearchForm/>}
-      {!favorites&&(feed.manualRefresh||feed.webSearchEnabled)&&<div className="hire-board-tools">
+      {!favorites&&<div className="hire-board-tools">
         {feed.manualRefresh&&<RefreshJobsButton onRefresh={reload}/>}
         <Link href="/jobs/settings/" className="hire-apply"><Settings size={15} aria-hidden="true"/> 联网刷新设置</Link>
       </div>}
@@ -100,8 +115,8 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
     <div className="hire-board-layout">
       <aside className="hire-filters">
         <div className="hire-filter-head"><span><SlidersHorizontal size={16}/> 筛选</span><button onClick={reset}>重置</button></div>
-        {select("工作城市","city",strings([...featuredCities,...otherCities,"其他"]))}
-        {select("技术方向","category",Object.entries(categoryNames))}
+        {select("工作城市","city",strings([...priorityCities,...otherCities,"其他"]))}
+        {select("岗位方向","category",categoryOptions)}
         {select("学历要求","education",[["eligible","本科可投"],...Object.entries(educationLabels)])}
         {select("数据状态","status",Object.entries(statusLabels),"真实来源（未关闭）")}
         <button className="hire-filter-more" aria-expanded={advanced} onClick={()=>setAdvanced(!advanced)}>{advanced?"收起更多筛选":"更多筛选"} <span>{advanced?"−":"+"}</span></button>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import {useEffect, useState} from "react";
 import {Activity, ArrowUpRight, BriefcaseBusiness, GraduationCap, RefreshCw} from "lucide-react";
-import {getJobs, isOpenJob, recruitmentTrack, type Job} from "@/lib/jobs";
+import {getCareerJobs, getJobs, isOpenJob, recruitmentTrack, type Job} from "@/lib/jobs";
 
 interface Feed {
   jobs: Job[];
@@ -33,8 +33,10 @@ function fetchFeed(){
 
 export function useLiveJobs(){
   const [feed,setFeed] = useState(fallback);
+  const [careerJobs,setCareerJobs] = useState<Job[]>([]);
   const [state,setState] = useState<"loading"|"ready"|"error">("loading");
   const [generation,setGeneration]=useState(0);
+  useEffect(() => { setCareerJobs(getCareerJobs()); }, []);
   useEffect(() => {
     let active = true;
     fetchFeed().then(
@@ -47,7 +49,7 @@ export function useLiveJobs(){
     feedRequest=undefined;
     setGeneration(value=>value+1);
   }
-  return {feed, state, jobs: [...getJobs(), ...feed.jobs],reload};
+  return {feed, state, jobs: [...getJobs(), ...careerJobs, ...feed.jobs],reload};
 }
 
 export function RefreshLabel({feed,state}:{feed:Feed; state:string}){

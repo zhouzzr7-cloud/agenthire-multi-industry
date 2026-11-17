@@ -37,6 +37,32 @@ test("unusable or failed provider responses are reported",async()=>{
   await assert.rejects(findWebJobs({query:"绍兴",apiKey:"test",fetchImpl:async()=>Response.json({error:"not a result"})}));
 });
 
+test("a personal Perplexity key uses only the selected provider and skips the site quota",async t=>{
+  const fetch=t.mock.method(globalThis,"fetch",async (url,request)=>{
+    assert.equal(url,"https://api.perplexity.ai/search");
+    assert.equal(request.headers.Authorization,"Bearer personal-test-key");
+    assert.equal(request.redirect,"error");
+    assert.match(JSON.parse(request.body).query,/财务实习/);
+    return Response.json({results:[
+      {...result(source),date:"2026-11-17"},
+      result("https://jobs.example.com/job/fake"),
+    ]});
+  });
+  const body={query:"杭州财务实习",provider:"perplexity",apiKey:"personal-test-key"};
+  const request=overrides=>new Request("https://example.test/api/jobs/web-search",{
+    method:"POST",body:JSON.stringify({...body,...overrides}),
+  });
+  const env={AI_SEARCH_DAILY_LIMIT:"1"};
+  const response=await handleWebJobSearch(request({}),env,[],async()=>[]);
+  assert.equal(response.status,200);
+  assert.equal(response.data.matches.length,1);
+  assert.equal(response.data.matches[0].publishedAt,"2026-11-17");
+  assert.equal(response.data.matches[0].sourceUrl,source);
+  assert.equal((await handleWebJobSearch(request({apiKey:""}),env,[],async()=>[])).data.error,"invalid_api_key");
+  assert.equal((await handleWebJobSearch(request({provider:"other"}),env,[],async()=>[])).data.error,"invalid_provider");
+  assert.equal(fetch.mock.callCount(),1);
+});
+
 test("custom limit can exceed the legacy cap and is bounded before reserving quota",async()=>{
   const rows=await findWebJobs({
     query:"绍兴",apiKey:"test",limit:37,

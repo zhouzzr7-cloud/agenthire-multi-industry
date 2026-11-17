@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {bachelorEligible,getJobs,getJob,demoJobs,queryJobs,canApply,realJobCount,verifiedJobCount,matchesSearch} from "../lib/jobs";
+import {bachelorEligible,getCareerJobs,getJobs,getJob,demoJobs,queryJobs,canApply,realJobCount,verifiedJobCount,matchesSearch} from "../lib/jobs";
 test("structured education excludes masters and unknown, accepts broader minimums",()=>{
   assert.equal(bachelorEligible("bachelor"),true);assert.equal(bachelorEligible("college"),true);
   assert.equal(bachelorEligible("any"),true);assert.equal(bachelorEligible("master"),false);assert.equal(bachelorEligible("unknown"),null);
@@ -11,6 +11,17 @@ test("combined filters and Chinese-English synonyms",()=>{
   assert.deepEqual(results.map(j=>j.id),["annuo-agent-application"]);
   assert.ok(matchesSearch(getJob("sii-agent-systems-intern")!,"运行时"));
   assert.equal(queryJobs(new URLSearchParams("q=no-such-job")).length,0);
+});
+test("home direction filters include the right roles alongside existing categories",()=>{
+  const now=new Date("2026-11-17T12:00:00+08:00");
+  const records=[...getJobs(),...getCareerJobs(now)];
+  const technology=queryJobs(new URLSearchParams("category=technology"),records);
+  assert.deepEqual(new Set(technology.map(job=>job.primaryCategory)),new Set(["agent-application","agent-infra","ai-infra"]));
+  for (const category of ["finance","operations","manufacturing","agent-infra"]) {
+    const matches=queryJobs(new URLSearchParams({category}),records);
+    assert.ok(matches.length>0);
+    assert.ok(matches.every(job=>job.primaryCategory===category));
+  }
 });
 test("unknown publication dates never pass recent filters",()=>{
   assert.ok(queryJobs(new URLSearchParams("days=7")).every(job=>job.publishedAt));
