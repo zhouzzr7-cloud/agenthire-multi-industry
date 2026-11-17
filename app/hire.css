@@ -194,3 +194,7 @@ footer{background:#edf0e7;color:#374938;border-color:var(--border)}
 .hire-ai-form { margin-top: 12px; }
 .hire-ai-reason { margin-top: 8px; line-height: 1.5; }
 .hire-ai-reason span { white-space: normal; }
+.hire-refresh-settings { display: grid; grid-template-columns: 1fr 1.6fr auto auto; align-items: end; gap: 10px; padding: 8px 0; }
+.hire-refresh-settings input { width: 100%; min-height: 38px; padding: 6px 10px; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; }
+.hire-refresh-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 720px) { .hire-refresh-settings { grid-template-columns: 1fr 1fr; } }

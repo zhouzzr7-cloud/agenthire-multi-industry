@@ -1,11 +1,12 @@
 import assets from "./assets.mjs";
 import {dedupe,getBaiduJobs,getIndexJobs} from "./sources.mjs";
 import {getTeamJobs} from "./team-sources.mjs";
-import {handleCareerSearch} from "./career-search.mjs";
+import {handleCareerSearch,handleWebJobSearch} from "./career-search.mjs";
 import {getCareerJobs,getJobs} from "../lib/jobs.ts";
 
 const maxAge = 36 * 60 * 60 * 1000;
 const interval = 18 * 60 * 60 * 1000;
+const manualInterval = 10 * 60 * 1000;
 const enc = new TextEncoder();
 const collectors = {baidu:getBaiduJobs,index:getIndexJobs,teams:getTeamJobs};
 const shanghaiDate = new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"});
@@ -46,11 +47,16 @@ async function authorized(request,env){
   return crypto.subtle.verify("HMAC",key,bytes,enc.encode("agenthire-refresh:"+stamp));
 }
 
-async function refresh(env){
+function canRefreshLocally(url,env){
+  return env.AGENTHIRE_LOCAL_REFRESH==="1"&&["127.0.0.1","localhost","[::1]"].includes(url.hostname);
+}
+
+async function refresh(env,manual=false){
   const snapshot=await read(env);
   const now=Date.now();
   const ready=Object.keys(collectors).every(name=>snapshot.groups[name]);
-  if(ready&&snapshot.refreshedAt&&now-Date.parse(snapshot.refreshedAt)<interval)return json({result:"already_current",...stats(snapshot)});
+  const refreshInterval=manual?manualInterval:interval;
+  if((manual||ready)&&snapshot.refreshedAt&&now-Date.parse(snapshot.refreshedAt)<refreshInterval)return json({result:"already_current",...stats(snapshot)});
   const refreshedAt=new Date(now).toISOString();
   const checkedAt=shanghaiDate.format(now);
   const answers=await Promise.allSettled(Object.entries(collectors).map(async([name,collect])=>[name,await collect(fetch,checkedAt)]));
@@ -103,15 +109,23 @@ function staticPage(request,url){
 export default {
   async fetch(request,env){
     const url = new URL(request.url);
+    const local=canRefreshLocally(url,env);
+    const sameOriginLocal=local&&request.headers.get("Origin")===url.origin;
     try{
-      if(url.pathname==="/api/jobs"&&request.method==="GET")return json(publicFeed(await read(env)));
+      if(url.pathname==="/api/jobs"&&request.method==="GET")return json({...publicFeed(await read(env)),manualRefresh:local});
       if(url.pathname==="/api/jobs/search"&&request.method==="POST"){
-        const {status,data}=await handleCareerSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs);
+        if(local&&!sameOriginLocal)return json({error:"unauthorized"},403);
+        const {status,data}=await handleCareerSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs,sameOriginLocal);
+        return json(data,status);
+      }
+      if(url.pathname==="/api/jobs/web-search"&&request.method==="POST"){
+        if(local&&!sameOriginLocal)return json({error:"unauthorized"},403);
+        const {status,data}=await handleWebJobSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs,sameOriginLocal);
         return json(data,status);
       }
       if(url.pathname==="/api/refresh"&&request.method==="POST"){
-        if(!await authorized(request,env))return json({error:"unauthorized"},403);
-        return await refresh(env);
+        if(!sameOriginLocal&&!await authorized(request,env))return json({error:"unauthorized"},403);
+        return await refresh(env,sameOriginLocal);
       }
       if(url.pathname.startsWith("/api/"))return json({error:"not_found"},404);
       if(request.method!=="GET"&&request.method!=="HEAD")return new Response(null,{status:405,headers:{Allow:"GET, HEAD"}});

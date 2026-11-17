@@ -13,6 +13,6 @@ jobs:
           cache: npm
       - run: npm ci --registry=https://registry.npmjs.org --replace-registry-host=always
       - run: npm test
-      - run: node --test tests/job-search.test.mjs
+      - run: node --test tests/job-search.test.mjs tests/web-jobs.test.mjs
       - run: npm run build
       - run: npm run typecheck
