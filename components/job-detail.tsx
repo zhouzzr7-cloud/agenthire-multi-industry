@@ -5,6 +5,13 @@ import {CopyButton, SaveButton} from "@/components/shell";
 
 export function JobDetail({job}:{job:Job}){
   const education=job.educationText??educationLabels[job.education];
+  const duties=job.responsibilities.filter(item=>!item.startsWith("原文涉及 "));
+  const requirements=[
+    ...(job.education!=="unknown"&&!job.requirements.some(item=>/学历|本科|大专|硕士|博士/.test(item))?[`学历要求：${education}`]:[]),
+    ...job.requirements,
+    ...(job.majorRequirement&&!job.requirements.some(item=>item.includes(job.majorRequirement!))?[`专业要求：${job.majorRequirement}`]:[]),
+    ...(job.internship?[`实习安排：${job.internship}`]:[]),
+  ];
   const undergraduate=bachelorEligible(job.education);
   const applicationWindow=job.applicationStart&&job.deadline?`${job.applicationStart} 至 ${job.deadline}`:null;
   const statusHeading={
@@ -13,7 +20,7 @@ export function JobDetail({job}:{job:Job}){
   const jobFacts=[
     ["工作城市",job.city],
     ["招聘类型",job.recruitmentType],
-    ["最低学历",education],
+    ["学历要求",education],
     ["招聘届别",job.graduationYear?`${job.graduationYear} 届`:"原页未注明"],
     ["公司规模",job.companySize],
     [applicationWindow?"投递时间":"投递截止",applicationWindow??job.deadline??"原页未注明"],
@@ -43,16 +50,20 @@ export function JobDetail({job}:{job:Job}){
         </section>
         <section>
           <h2>工作职责</h2>
-          {job.responsibilities.length?<ul>{job.responsibilities.map(item=><li key={item}>{item}</li>)}</ul>:<p>工作职责请查看招聘原页。</p>}
+          {duties.length?<ul>{duties.map(item=><li key={item}>{item}</li>)}</ul>:<p>{job.recruitmentNoticeUrl?"校招简章公布了岗位方向、学历、专业和工作城市，未逐项列出日常职责。":"当前收录信息未包含具体职责，可在招聘原页查看完整说明。"}</p>}
         </section>
         <section>
           <h2>任职要求</h2>
-          {job.requirements.length?<ul>{job.requirements.map(item=><li key={item}>{item}</li>)}</ul>:<p>完整任职要求请查看招聘原页。</p>}
+          {requirements.length?<ul>{requirements.map(item=><li key={item}>{item}</li>)}</ul>:<p>当前收录信息未包含具体任职要求。</p>}
           {Boolean(job.preferredQualifications?.length)&&<>
             <h3>加分项</h3>
             <ul>{job.preferredQualifications?.map(item=><li key={item}>{item}</li>)}</ul>
           </>}
         </section>
+        {Boolean(job.recruitmentNotes?.length)&&<section>
+          <h2>招聘对象与流程</h2>
+          <ul>{job.recruitmentNotes?.map(note=><li key={note}>{note}</li>)}</ul>
+        </section>}
         <section>
           <h2>岗位匹配信息</h2>
           <dl className="match-grid">
@@ -69,6 +80,7 @@ export function JobDetail({job}:{job:Job}){
           <h2>数据来源与核验</h2>
           <dl className="source-grid">
             <div><dt>招聘原页</dt><dd>{job.sourceUrl?<a className="source-link" href={job.sourceUrl} target="_blank" rel="noopener noreferrer">{job.source} ↗</a>:job.source}</dd></div>
+            {job.recruitmentNoticeUrl&&<div><dt>补充来源</dt><dd><a className="source-link" href={job.recruitmentNoticeUrl} target="_blank" rel="noopener noreferrer">查看完整校招简章 ↗</a></dd></div>}
             <div><dt>发布时间</dt><dd>{job.publishedAt??"原页未注明"}</dd></div>
             <div><dt>投递入口最近核验</dt><dd>{job.lastVerifiedAt??"未确认"}</dd></div>
             <div><dt>来源检查时间</dt><dd>{job.sourceCheckedAt??"未记录"}</dd></div>
@@ -82,7 +94,7 @@ export function JobDetail({job}:{job:Job}){
         <div className="detail-salary">{job.salary??"薪资未提供"}</div>
         {job.salary&&<span className="small-copy">{job.status==="demo"?"演示薪资":"薪资按招聘原页口径展示"}</span>}
         <dl>{jobFacts.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-        {canApply(job)?<a className="button primary" href={job.applyUrl!} target="_blank" rel="noopener noreferrer">{job.status==="unverified"?"查看原站并投递":"前往原站投递"} <ArrowUpRight size={16} aria-hidden="true"/></a>:<div className="unavailable">{job.status==="closed"?"已关闭 · 暂停投递":job.status==="demo"?"演示岗位 · 暂无投递入口":"投递入口待核实"}</div>}
+        {canApply(job)?<a className="button primary" href={job.applyUrl!} target="_blank" rel="noopener noreferrer">{job.status==="unverified"?"查看招聘原页":"前往原站投递"} <ArrowUpRight size={16} aria-hidden="true"/></a>:<div className="unavailable">{job.status==="closed"?"已关闭 · 暂停投递":job.status==="demo"?"演示岗位 · 暂无投递入口":"投递入口待核实"}</div>}
         {canApply(job)&&job.alternateApplyUrl&&<a className="button secondary" href={job.alternateApplyUrl} target="_blank" rel="noopener noreferrer">企业校园招聘入口 ↗</a>}
         <SaveButton id={job.id} full/>
         <CopyButton/>

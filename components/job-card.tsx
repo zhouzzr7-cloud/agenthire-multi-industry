@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {ArrowUpRight, MapPin} from "lucide-react";
-import {type Job, canApply, categories, educationLabels, hasSmallHeadcount, jobHref, statusLabels} from "@/lib/jobs";
+import {type Job, categories, educationLabels, hasSmallHeadcount, jobHref, statusLabels} from "@/lib/jobs";
 import {SaveButton} from "./shell";
 
 export function JobCard({job, matchReason}:{job:Job; matchReason?:string}){
@@ -23,8 +23,7 @@ export function JobCard({job, matchReason}:{job:Job; matchReason?:string}){
     <div className="hire-role-actions">
       <SaveButton id={job.id}/>
       {job.salary&&<span className="hire-salary">{job.salary}</span>}
-      {canApply(job)?<a href={job.applyUrl!} target="_blank" rel="noopener noreferrer" className="hire-apply">{job.status==="verified"?"原站投递":"原站查看"} <ArrowUpRight size={15}/></a>:
-        <Link href={jobHref(job)} className="hire-apply">查看详情 <ArrowUpRight size={15}/></Link>}
+      <Link href={jobHref(job)} className="hire-apply">查看详情 <ArrowUpRight size={15} aria-hidden="true"/></Link>
     </div>
   </article>;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {matchesWebJob,mergeWebJobs,type WebJob} from "../lib/web-job-feed";
+import {findStoredWebJob,matchesWebJob,mergeWebJobs,rememberWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
 
 const base:WebJob={
   title:"绍兴财务实习",snippet:"财会相关专业",source:"招聘网",hostname:"www.shixiseng.com",
@@ -20,4 +20,13 @@ test("external cards participate in evidenced filters without claiming unknown e
   assert.equal(matchesWebJob(base,new URLSearchParams("city=杭州")),false);
   assert.equal(matchesWebJob(base,new URLSearchParams("education=bachelor")),false);
   assert.equal(matchesWebJob(base,new URLSearchParams("status=verified")),false);
+});
+
+test("an external card resolves its canonical link to the browser's remembered result",()=>{
+  const job={...base,sourceUrl:base.sourceUrl+"?utm_source=feed&id=42"};
+  rememberWebJobs([job]);
+  const href=new URL(webJobHref({...job,sourceUrl:base.sourceUrl+"?id=42"}),"https://example.test");
+  assert.equal(href.pathname,"/jobs/web/");
+  assert.equal(findStoredWebJob(href.searchParams.get("id"))?.sourceUrl,job.sourceUrl);
+  assert.equal(findStoredWebJob("unknown"),undefined);
 });

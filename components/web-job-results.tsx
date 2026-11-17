@@ -4,7 +4,7 @@ import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {ArrowLeft,ArrowUpRight,Check,CircleAlert,Globe,RefreshCw,Settings} from "lucide-react";
-import {mergeWebJobs,preferencesKey,readWebJobs,webFeedKey,webJobLimit,type WebJob} from "@/lib/web-job-feed";
+import {mergeWebJobs,preferencesKey,readWebJobs,rememberWebJobs,webFeedKey,webJobHref,webJobLimit,type WebJob} from "@/lib/web-job-feed";
 import {isSearchProvider,searchProviderLabels} from "@/lib/web-search-providers.mjs";
 
 type State =
@@ -67,7 +67,10 @@ export function WebJobResults({query}:{query:string}){
     setState({status:"loading"});
     try{
       const jobs=await fetchWebJobs(query,controller.signal);
-      if(!controller.signal.aborted)setState({status:"ready",jobs});
+      if(!controller.signal.aborted){
+        rememberWebJobs(jobs);
+        setState({status:"ready",jobs});
+      }
     }catch(error){
       if(!controller.signal.aborted)setState({status:"error",message:error instanceof Error?error.message:"联网搜索失败，请稍后再试。"});
     }finally{
@@ -227,16 +230,17 @@ export function WebJobSettings(){
 }
 
 export function WebJobCard({job}:{job:WebJob}){
+  const href=webJobHref(job);
   return <article className="job-card hire-role hire-web-card">
         <div className="hire-company-mark" aria-hidden="true"><Globe size={20}/></div>
         <div className="hire-role-body">
           <div className="hire-role-company">{job.source}<span className="status status-unverified">外部招聘 · 在招待确认</span></div>
-          <h3><a href={job.sourceUrl} target="_blank" rel="noopener noreferrer">{job.title}</a></h3>
+          <h3><Link href={href}>{job.title}</Link></h3>
           <div className="hire-role-meta"><span>{job.hostname}</span>{job.publishedAt&&<span>网页发布 {job.publishedAt}</span>}</div>
           {job.snippet&&<p className="hire-web-snippet">{job.snippet}</p>}
         </div>
-        <div className="hire-role-actions"><a className="hire-apply" href={job.sourceUrl} target="_blank" rel="noopener noreferrer">
-          查看招聘原页 <ArrowUpRight size={15}/>
-        </a></div>
+        <div className="hire-role-actions"><Link className="hire-apply" href={href}>
+          查看详情 <ArrowUpRight size={15} aria-hidden="true"/>
+        </Link></div>
   </article>;
 }

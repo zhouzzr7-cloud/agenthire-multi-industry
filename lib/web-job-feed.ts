@@ -2,6 +2,8 @@ export type WebJob = {title:string;snippet:string;publishedAt:string|null;source
 export const webJobLimit=50;
 export const preferencesKey="agenthire.web-refresh.preferences";
 export const webFeedKey="agenthire.web-refresh.results";
+const recentWebJobsKey="agenthire.web-search.recent-results";
+let recentWebJobs:WebJob[]=[];
 
 export function webJobKey(value:string|null){
   try{
@@ -33,6 +35,29 @@ export function readWebJobs(){
     const cap=Number.isInteger(limit)&&limit>=1&&limit<=webJobLimit?limit:webJobLimit;
     return Array.isArray(rows)?mergeWebJobs([],rows,cap):[];
   }catch{return [];}
+}
+
+export function webJobHref(job:WebJob){
+  return `/jobs/web/?${new URLSearchParams({id:webJobKey(job.sourceUrl)??""})}`;
+}
+
+function readRecentWebJobs():WebJob[]{
+  try{
+    const rows=JSON.parse(sessionStorage.getItem(recentWebJobsKey)??"null");
+    return Array.isArray(rows)?mergeWebJobs(recentWebJobs,rows,webJobLimit):recentWebJobs;
+  }catch{return recentWebJobs;}
+}
+
+export function rememberWebJobs(jobs:WebJob[]){
+  const fetchedAt=new Date().toISOString();
+  recentWebJobs=mergeWebJobs(jobs.map(job=>({...job,fetchedAt:job.fetchedAt??fetchedAt})),readRecentWebJobs(),webJobLimit);
+  try{
+    sessionStorage.setItem(recentWebJobsKey,JSON.stringify(recentWebJobs));
+  }catch{}
+}
+
+export function findStoredWebJob(id:string|null){
+  return id?[...readRecentWebJobs(),...readWebJobs()].find(job=>webJobKey(job.sourceUrl)===id):undefined;
 }
 
 export function matchesWebJob(job:WebJob,params:URLSearchParams){
