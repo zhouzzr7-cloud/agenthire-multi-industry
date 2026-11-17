@@ -62,7 +62,7 @@ Favorites use `localStorage` in the current browser only. Clearing browser data 
 
 首页和岗位页提供「AI 找岗位」，支持用一句话查询 AI Agent、财会、运营和制造岗位。Worker 通过 `POST /api/jobs/search` 返回站内岗位的 ID 和匹配理由。「联网找岗位」通过 `POST /api/jobs/web-search` 补充外部招聘原页，外部结果标注在招状态待确认。
 
-「联网刷新设置」可使用站点的 `DEEPSEEK_API_KEY`，也可选择 DeepSeek 或 Perplexity 并填写自己的 API Key。个人 Key 仅在当前浏览器标签页的会话中保存，搜索时由 Worker 转交给所选服务商，使用该 Key 所属账户的额度。选择「使用站点配置」并保存可清除个人 Key。搜索条件和刷新结果保存在当前浏览器，「最多显示的岗位数」控制浏览器保留的结果数量。
+「联网刷新设置」可使用站点的 `DEEPSEEK_API_KEY`，也可选择 DeepSeek、博查、Perplexity、Tavily、Brave Search 或 Exa 并填写自己的搜索 API Key。个人 Key 仅在当前浏览器标签页的会话中保存，搜索时由 Worker 转交给所选服务商，使用该 Key 所属账户的额度。选择「使用站点配置」并保存可清除个人 Key。搜索条件和刷新结果保存在当前浏览器，「最多显示的岗位数」控制浏览器保留的结果数量。
 
 托管环境可用 `AI_SEARCH_DAILY_LIMIT`（1–500）为站内模型解析和联网搜索设置共用的每日调用上限。省略此设置时，站内搜索使用规则匹配，联网搜索由 DeepSeek API 处理。DeepSeek 返回余额不足时，页面会明确显示账户余额提示。
 

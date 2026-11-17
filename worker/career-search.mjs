@@ -1,4 +1,5 @@
 import {searchSiteJobs} from "../lib/job-search.mjs";
+import {isSearchProvider} from "../lib/web-search-providers.mjs";
 import {findWebJobs,WebSearchHttpError} from "./web-jobs.mjs";
 
 const maxBody = 4096;
@@ -65,7 +66,7 @@ export async function handleWebJobSearch(request,env,records,liveRecords,local=f
   const provider=input.provider??"deepseek";
   let apiKey=env.DEEPSEEK_API_KEY;
   if(personalSearch){
-    if(input.provider!=="deepseek"&&input.provider!=="perplexity")return {status:400,data:{error:"invalid_provider"}};
+    if(!isSearchProvider(input.provider))return {status:400,data:{error:"invalid_provider"}};
     if(typeof input.apiKey!=="string"||!/^[!-~]{1,512}$/.test(input.apiKey.trim()))return {status:400,data:{error:"invalid_api_key"}};
     apiKey=input.apiKey.trim();
   }else{

@@ -63,6 +63,57 @@ test("a personal Perplexity key uses only the selected provider and skips the si
   assert.equal(fetch.mock.callCount(),1);
 });
 
+const newProviders = [
+  {
+    provider:"bocha",endpoint:"https://api.bocha.cn/v1/web-search",header:"Authorization",prefix:"Bearer ",
+    response:{code:200,data:{webPages:{value:[{url:source,name:"财务实习生",snippet:"招聘本科生",datePublished:"2026-11-17T09:00:00+08:00"}]}}},
+    date:"2026-11-17",
+  },
+  {
+    provider:"tavily",endpoint:"https://api.tavily.com/search",header:"Authorization",prefix:"Bearer ",
+    response:{results:[{url:source,title:"财务实习生",content:"招聘本科生",published_date:"2026-11-17"}]},
+    date:"2026-11-17",
+  },
+  {
+    provider:"brave",endpoint:"https://api.search.brave.com/res/v1/web/search",header:"X-Subscription-Token",prefix:"",
+    response:{type:"search",web:{results:[{url:source,title:"财务实习生",description:"招聘本科生"}]}},
+    date:null,
+  },
+  {
+    provider:"exa",endpoint:"https://api.exa.ai/search",header:"x-api-key",prefix:"",
+    response:{results:[{url:source,title:"财务实习生",highlights:["招聘本科生"],publishedDate:"2026-11-17T00:00:00Z"}]},
+    date:"2026-11-17",
+  },
+];
+
+for (const config of newProviders) {
+  test(`${config.provider} forwards the personal key and normalizes recruiting links`,async t=>{
+    const fetch=t.mock.method(globalThis,"fetch",async (url,options)=>{
+      const target=new URL(url);
+      assert.equal(target.origin+target.pathname,config.endpoint);
+      assert.equal(options.headers[config.header],config.prefix+"test-key");
+      assert.equal(options.redirect,"error");
+      if(config.provider==="brave"){
+        assert.equal(options.method??"GET","GET");
+        assert.match(target.searchParams.get("q"),/财务实习/);
+      }else{
+        assert.equal(options.method,"POST");
+        assert.match(JSON.parse(options.body).query,/财务实习/);
+      }
+      return Response.json(config.response);
+    });
+    const request=new Request("https://example.test/api/jobs/web-search",{
+      method:"POST",body:JSON.stringify({query:"杭州财务实习",provider:config.provider,apiKey:"test-key"}),
+    });
+    const response=await handleWebJobSearch(request,{},[],async()=>[]);
+    assert.deepEqual(response,{status:200,data:{matches:[{
+      title:"财务实习生",snippet:"招聘本科生",publishedAt:config.date,
+      source:"www.shixiseng.com",sourceUrl:source,hostname:"www.shixiseng.com",
+    }]}});
+    assert.equal(fetch.mock.callCount(),1);
+  });
+}
+
 test("custom limit can exceed the legacy cap and is bounded before reserving quota",async()=>{
   const rows=await findWebJobs({
     query:"绍兴",apiKey:"test",limit:37,

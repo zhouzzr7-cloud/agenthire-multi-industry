@@ -5,20 +5,21 @@ import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {ArrowLeft,ArrowUpRight,Check,CircleAlert,Globe,RefreshCw,Settings} from "lucide-react";
 import {mergeWebJobs,preferencesKey,readWebJobs,webFeedKey,webJobLimit,type WebJob} from "@/lib/web-job-feed";
+import {isSearchProvider,searchProviderLabels} from "@/lib/web-search-providers.mjs";
 
 type State =
   | {status:"idle"|"loading"}
   | {status:"ready";jobs:WebJob[]}
   | {status:"error";message:string};
 
-type SearchProvider = "deepseek" | "perplexity";
+type SearchProvider = keyof typeof searchProviderLabels;
 type SearchAccess = {provider:SearchProvider;apiKey:string};
 const searchAccessKey = "agenthire.web-search.session";
 
 function readSearchAccess():SearchAccess|undefined{
   try{
     const saved = JSON.parse(sessionStorage.getItem(searchAccessKey)??"null");
-    if((saved?.provider==="deepseek"||saved?.provider==="perplexity")&&typeof saved.apiKey==="string")return saved;
+    if(isSearchProvider(saved?.provider)&&typeof saved.apiKey==="string")return saved;
   }catch{}
 }
 
@@ -27,12 +28,6 @@ const errors: Record<string,string> = {
   quota_not_configured:"站点的联网次数限制配置有误，请检查设置。",
   quota_exhausted:"此站点今天的联网次数已用完，北京时间每天 08:00 重置。",
   quota_storage_unavailable:"此站点暂时无法读取联网额度，请稍后重试。",
-  deepseek_balance_insufficient:"DeepSeek API 账户余额不足。请到 DeepSeek 开放平台检查余额。",
-  deepseek_key_rejected:"当前 DeepSeek API Key 无法使用，请检查配置。",
-  deepseek_rate_limited:"DeepSeek 请求太频繁，请稍后重试。",
-  perplexity_balance_insufficient:"Perplexity API 账户余额不足。",
-  perplexity_key_rejected:"Perplexity API Key 无效或无权使用搜索接口。",
-  perplexity_rate_limited:"Perplexity 请求太频繁，请稍后重试。",
   invalid_provider:"请选择可用的联网搜索服务商。",
   invalid_api_key:"请填写有效的 API Key。",
   web_search_unavailable:"联网搜索暂时不可用，请稍后再试。",
@@ -41,12 +36,22 @@ const errors: Record<string,string> = {
 
 const defaults = {city:"",keywords:"",limit:20};
 async function fetchWebJobs(query:string,signal:AbortSignal,limit?:number){
+  const access=readSearchAccess();
   const response=await fetch("/api/jobs/web-search",{
-    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query,limit,...readSearchAccess()}),signal,
+    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query,limit,...access}),signal,
   });
   if(response.status===404)throw new Error("当前站点暂未接入联网搜索。");
   const payload=await response.json();
-  if(!response.ok)throw new Error(errors[payload.error]??"联网搜索暂时不可用。");
+  if(!response.ok){
+    const provider=access?.provider??"deepseek";
+    const label=searchProviderLabels[provider];
+    const providerErrors:Record<string,string>={
+      [`${provider}_balance_insufficient`]:`${label} 的 API 额度不足，请检查账户。`,
+      [`${provider}_key_rejected`]:`${label} 拒绝了该 API Key，请检查密钥和搜索权限。`,
+      [`${provider}_rate_limited`]:`${label} 请求太频繁，请稍后重试。`,
+    };
+    throw new Error(errors[payload.error]??providerErrors[payload.error]??"联网搜索暂时不可用。");
+  }
   if(!Array.isArray(payload.matches))throw new Error("未能读取联网结果。");
   return mergeWebJobs(payload.matches,[],limit??24);
 }
@@ -189,17 +194,21 @@ export function WebJobSettings(){
         <legend>联网服务商</legend>
         <label className="hire-filter-select"><span>搜索服务</span>
           <select value={provider} onChange={event=>{
-            setProvider(event.target.value as SearchProvider|"site");
-            setApiKey("");
+            const next=event.target.value;
+            const saved=readSearchAccess();
+            setProvider(isSearchProvider(next)?next:"site");
+            setApiKey(saved?.provider===next?saved.apiKey:"");
+            setNotice(undefined);
           }}>
             <option value="site">使用站点配置</option>
-            <option value="deepseek">DeepSeek（自己的 Key）</option>
-            <option value="perplexity">Perplexity（自己的 Key）</option>
+            <optgroup label="使用自己的 API Key">
+              {Object.entries(searchProviderLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+            </optgroup>
           </select>
         </label>
         {provider!=="site"&&<label className="hire-filter-select"><span>API Key</span>
           <input type="password" value={apiKey} maxLength={512} autoComplete="off" spellCheck={false}
-            placeholder="粘贴该服务商的 API Key" onChange={event=>setApiKey(event.target.value)}/>
+            placeholder={`粘贴 ${searchProviderLabels[provider]} 的 API Key`} onChange={event=>setApiKey(event.target.value)}/>
         </label>}
         <p>{provider==="site"?"也可以选择服务商并使用自己的 API Key。":"Key 仅保存在当前标签页的会话中。切换到「使用站点配置」并保存可清除 Key。"}</p>
       </fieldset>
