@@ -111,13 +111,14 @@ function staticPage(request,url){
 export default {
   async fetch(request,env){
     const url = new URL(request.url);
+    const path = url.pathname.startsWith("/api/") ? url.pathname.replace(/\/$/,"") : url.pathname;
     const local=canRefreshLocally(url,env);
     const sameOriginLocal=local&&request.headers.get("Origin")===url.origin;
     try{
-      if(url.pathname==="/api/jobs"&&request.method==="GET")return json({
+      if(path==="/api/jobs"&&request.method==="GET")return json({
         ...publicFeed(await read(env)),manualRefresh:local,webSearchEnabled:Boolean(env.DEEPSEEK_API_KEY),
       });
-      if(url.pathname==="/api/jobs/source-details"&&request.method==="GET"){
+      if(path==="/api/jobs/source-details"&&request.method==="GET"){
         const details=await loadSourceDetails(url.searchParams.get("source")).catch(error=>{
           console.warn("Unable to read public job details",error.message);
           return null;
@@ -125,17 +126,17 @@ export default {
         if(!details||(!details.responsibilities.length&&!details.requirements.length))return json({error:"source_details_unavailable"},404);
         return Response.json(details,{headers:{"Cache-Control":"public, max-age=900","X-Content-Type-Options":"nosniff"}});
       }
-      if(url.pathname==="/api/jobs/search"&&request.method==="POST"){
+      if(path==="/api/jobs/search"&&request.method==="POST"){
         if(local&&!sameOriginLocal)return json({error:"unauthorized"},403);
         const {status,data}=await handleCareerSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs,sameOriginLocal);
         return json(data,status);
       }
-      if(url.pathname==="/api/jobs/web-search"&&request.method==="POST"){
+      if(path==="/api/jobs/web-search"&&request.method==="POST"){
         if(local&&!sameOriginLocal)return json({error:"unauthorized"},403);
         const {status,data}=await handleWebJobSearch(request,env,[...getJobs(),...getCareerJobs()],async()=>publicFeed(await read(env)).jobs,sameOriginLocal);
         return json(data,status);
       }
-      if(url.pathname==="/api/refresh"&&request.method==="POST"){
+      if(path==="/api/refresh"&&request.method==="POST"){
         if(!sameOriginLocal&&!await authorized(request,env))return json({error:"unauthorized"},403);
         return await refresh(env,sameOriginLocal);
       }

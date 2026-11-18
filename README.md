@@ -14,7 +14,9 @@ npm run typecheck
 npm run build
 ```
 
-The production build exports `out/`. Upload this directory to a static host supporting directory index pages. This project uses actual Next.js App Router and TypeScript; it does not require a Node server in production. Sites hosts the static output as configured in `.openai/hosting.json`.
+`npm run dev` builds the site, initializes the local D1 database, and serves the pages and APIs at `http://127.0.0.1:8787`. Run it again after editing source files to rebuild. `npm run dev:ui` opens the Next.js UI preview at `http://127.0.0.1:3000` with hot reload. The jobs APIs run in Wrangler.
+
+The production build exports `out/` and packages the Worker in `dist/server/` as configured in `.openai/hosting.json`.
 
 ## Current product
 
@@ -66,6 +68,6 @@ Favorites use `localStorage` in the current browser only. Clearing browser data 
 
 托管环境可用 `AI_SEARCH_DAILY_LIMIT`（1–500）为站内模型解析和联网搜索设置共用的每日调用上限。省略此设置时，站内搜索使用规则匹配，联网搜索由 DeepSeek API 处理。DeepSeek 返回余额不足时，页面会明确显示账户余额提示。
 
-本地运行时，在项目根目录的 `.env` 中配置 `DEEPSEEK_API_KEY`，然后执行 `npm run build` 和 `npx wrangler dev --local`。打开 Wrangler 输出的本地地址，即可从岗位页进入「联网刷新设置」。
+本地使用站点的 DeepSeek 配置时，在项目根目录的 `.env` 中填写 `DEEPSEEK_API_KEY`，然后执行 `npm run dev`。打开 `http://127.0.0.1:8787/jobs/settings/` 即可使用联网刷新，也可以在该页面选择自己的搜索 API Key。
 
 运行 `npm test` 和 `node --test tests/job-search.test.mjs` 验证搜索与 Worker 请求。执行 `npm run build` 后可运行 `npm run typecheck` 检查类型。

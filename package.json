@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --hostname 127.0.0.1 --port 3000",
+    "dev": "next build --turbopack && node scripts/pack-worker.mjs && npx --yes wrangler d1 execute agenthire-local --local --file drizzle/0000_agenthire_feed.sql && npx --yes wrangler dev --local --ip 127.0.0.1 --port 8787",
+    "dev:ui": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "next build --webpack && node scripts/pack-worker.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts && node --test tests/web-jobs.test.mjs"
