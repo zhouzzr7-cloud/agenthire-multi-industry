@@ -36,14 +36,14 @@ export function parseCities(place){
   return [...new Set(place.split(/[、，,／/]/).map(city=>city.trim().replace(/市$/,"")).filter(Boolean))];
 }
 
-export function jobPoints(value){
+export function jobPoints(value,{limit=5,pointLength=180}={}){
   if(typeof value!=="string")return [];
   return value.replace(/<\/(?:p|li|div)>|<br\s*\/?>/gi,"\n")
     .split(/\n|(?<!\S)\d{1,2}(?:[、．]\s*|\.[ \t]+)/u)
     .map(part=>clean(part).replace(/^[-•\s]+/u,""))
     .filter(Boolean)
-    .slice(0,5)
-    .map(part=>part.length>180?part.slice(0,179)+"…":part);
+    .slice(0,limit)
+    .map(part=>part.length>pointLength?part.slice(0,pointLength-1)+"…":part);
 }
 
 function eligibility(text){

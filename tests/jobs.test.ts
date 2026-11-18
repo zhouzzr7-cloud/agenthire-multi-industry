@@ -1,5 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
+import {deflateSync} from "node:zlib";
 import {makeJob} from "../worker/sources.mjs";
 import {withReviewedDetails} from "../worker/reviewed-job-details.mjs";
 import {loadSourceDetails,parseSourceDetails} from "../worker/source-details.mjs";
@@ -147,6 +148,14 @@ test("Nowcoder details read separate job sections without collecting surrounding
   assert.deepEqual(parseSourceDetails("https://www.nowcoder.com/jobs/detail/123",html),{
     responsibilities:["维护功能接口","完善测试覆盖"],requirements:["计算机相关专业"],
   });
+});
+
+test("campus job details decode the public posting and keep application instructions out of requirements",async()=>{
+  const original='<p>一、岗位职责</p><p>1、维护服务接口。</p><p>二、任职资格</p><p>1.本科及以上。</p><p>加分项：有测试项目经验。</p><p>简历请发送至 hr@example.test。</p>';
+  const payload=deflateSync("prefix"+Buffer.from("skip"+original).toString("base64")).toString("base64");
+  const html=`<h5>职位详情</h5><div><section id="content123"></section></div><h5>单位介绍</h5><script>$("#content123").each(function() { $(this).parent().html(Base64.decode(unzip("${payload}").substr(6)).substr(4)); });</script>`;
+  const details=await loadSourceDetails("https://zccareer.zufe.edu.cn/job/view/id/1937720",async()=>new Response(html));
+  assert.deepEqual(details,{responsibilities:["维护服务接口。"],requirements:["本科及以上。"],preferredQualifications:["有测试项目经验。"]});
 });
 
 test("team sync saves source details for both indexed and manually added postings",async()=>{

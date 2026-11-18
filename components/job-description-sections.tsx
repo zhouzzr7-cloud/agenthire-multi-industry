@@ -3,7 +3,7 @@
 import {useEffect,useState} from "react";
 import {jobDetailSourceUrl} from "@/lib/job-detail-sources.mjs";
 
-type Description = {responsibilities:string[];requirements:string[]};
+type Description = {responsibilities:string[];requirements:string[];preferredQualifications?:string[]};
 
 export function JobDescriptionSections({
   sourceUrl,responsibilities=[],requirements=[],preferredQualifications=[],reviewed=false,notice=false,compact=false,fromSnippet=false,
@@ -34,9 +34,10 @@ export function JobDescriptionSections({
   const loading=Boolean(url&&result?.url!==url);
   const duties=source?.responsibilities.length?source.responsibilities:responsibilities;
   const qualifications=source?.requirements.length?source.requirements:requirements;
+  const preferences=source?.preferredQualifications?.length?source.preferredQualifications:preferredQualifications;
   const snippetUsed=fromSnippet&&Boolean((responsibilities.length&&!source?.responsibilities.length)||(requirements.length&&!source?.requirements.length));
-  if(compact&&!duties.length&&!qualifications.length){
-    return <section className="detail-source-note"><p>{loading?"正在读取招聘原页中的职责和要求…":"具体工作职责和任职要求请查看招聘原页。"}</p></section>;
+  if(compact&&!duties.length&&!qualifications.length&&!preferences.length){
+    return <section className="detail-source-note"><p>{loading?"正在读取招聘原页中的职责和要求…":url?"这次未能从招聘原页提取职责和要求，可在原页查看。":"此来源目前收录了搜索摘要，可打开招聘原页查看正文。"}</p></section>;
   }
   return <>
     <section>
@@ -48,9 +49,9 @@ export function JobDescriptionSections({
     <section>
       <h2>任职要求</h2>
       {qualifications.length?<ul>{qualifications.map((item,index)=><li key={`${index}-${item}`}>{item}</li>)}</ul>:<p>{loading?"正在读取招聘原页…":"当前收录信息未包含具体任职要求。"}</p>}
-      {preferredQualifications.length>0&&<>
+      {preferences.length>0&&<>
         <h3>加分项</h3>
-        <ul>{preferredQualifications.map(item=><li key={item}>{item}</li>)}</ul>
+        <ul>{preferences.map(item=><li key={item}>{item}</li>)}</ul>
       </>}
       {source||snippetUsed?<p className="small-copy">{source?(snippetUsed?"根据招聘原页及网页摘要整理。":"以上补充信息摘自招聘原页。"):"上述内容摘自网页搜索摘要。"}</p>:null}
     </section>

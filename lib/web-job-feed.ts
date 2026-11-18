@@ -1,5 +1,7 @@
 export type WebJob = {title:string;snippet:string;publishedAt:string|null;source:string;sourceUrl:string;hostname:string;fetchedAt?:string};
+export type WebSearchResults = {jobs:WebJob[];visibleCount:number;searchedMore:boolean};
 export const webJobLimit=50;
+export const webJobPageSize=12;
 export const preferencesKey="agenthire.web-refresh.preferences";
 export const webFeedKey="agenthire.web-refresh.results";
 const recentWebJobsKey="agenthire.web-search.recent-results";
@@ -61,15 +63,20 @@ export function findStoredWebJob(id:string|null){
   return id?[...readRecentWebJobs(),...readWebJobs()].find(job=>webJobKey(job.sourceUrl)===id):undefined;
 }
 
-export function rememberWebSearch(query:string,jobs:WebJob[]){
-  rememberWebJobs(jobs);
-  try{sessionStorage.setItem(lastWebSearchKey,JSON.stringify({query,jobs}));}catch{}
+export function rememberWebSearch(query:string,results:WebSearchResults){
+  rememberWebJobs(results.jobs);
+  try{sessionStorage.setItem(lastWebSearchKey,JSON.stringify({query,...results}));}catch{}
 }
 
 export function findRememberedWebSearch(query:string){
   try{
     const saved=JSON.parse(sessionStorage.getItem(lastWebSearchKey)??"null");
-    if(saved?.query===query&&Array.isArray(saved.jobs))return mergeWebJobs([],saved.jobs,webJobLimit);
+    if(saved?.query===query&&Array.isArray(saved.jobs))return {
+      jobs:mergeWebJobs([],saved.jobs,webJobLimit),
+      visibleCount:Number.isInteger(saved.visibleCount)&&saved.visibleCount>=webJobPageSize
+        ?Math.min(saved.visibleCount,webJobLimit):webJobPageSize,
+      searchedMore:saved.searchedMore===true,
+    };
   }catch{}
   return null;
 }

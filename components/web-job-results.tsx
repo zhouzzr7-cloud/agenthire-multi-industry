@@ -4,13 +4,13 @@ import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {ArrowLeft,ArrowUpRight,Check,CircleAlert,Globe,RefreshCw,Settings} from "lucide-react";
-import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebJobs,rememberWebSearch,webFeedKey,webJobHref,webJobLimit,type WebJob} from "@/lib/web-job-feed";
+import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebJobs,rememberWebSearch,webFeedKey,webJobHref,webJobLimit,webJobPageSize,type WebJob,type WebSearchResults} from "@/lib/web-job-feed";
 import {withAiSearchQuery} from "@/lib/ai-search-navigation";
 import {isSearchProvider,searchProviderLabels} from "@/lib/web-search-providers.mjs";
 
 type State =
   | {status:"idle"|"loading"}
-  | {status:"ready";jobs:WebJob[]}
+  | ({status:"ready";loadingMore?:boolean;moreError?:string}&WebSearchResults)
   | {status:"error";message:string};
 
 type SearchProvider = keyof typeof searchProviderLabels;
@@ -36,7 +36,7 @@ const errors: Record<string,string> = {
 };
 
 const defaults = {city:"",keywords:"",limit:20};
-async function fetchWebJobs(query:string,signal:AbortSignal,limit?:number){
+async function fetchWebJobs(query:string,signal:AbortSignal,limit:number){
   const access=readSearchAccess();
   const response=await fetch("/api/jobs/web-search",{
     method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query,limit,...access}),signal,
@@ -54,36 +54,51 @@ async function fetchWebJobs(query:string,signal:AbortSignal,limit?:number){
     throw new Error(errors[payload.error]??providerErrors[payload.error]??"联网搜索暂时不可用。");
   }
   if(!Array.isArray(payload.matches))throw new Error("未能读取联网结果。");
-  return mergeWebJobs(payload.matches,[],limit??24);
+  return mergeWebJobs(payload.matches,[],limit);
 }
 
 export function WebJobResults({query}:{query:string}){
   const [state,setState]=useState<State>({status:"idle"});
   const active=useRef<AbortController|null>(null);
   useEffect(()=>{
-    const jobs=findRememberedWebSearch(query);
-    if(jobs)setState({status:"ready",jobs});
+    const saved=findRememberedWebSearch(query);
+    if(saved)setState({status:"ready",...saved});
     return ()=>active.current?.abort();
   },[query]);
-  async function search(){
+  function showResults(results:WebSearchResults){
+    rememberWebSearch(query,results);
+    setState({status:"ready",...results});
+  }
+
+  async function search(previous?:WebSearchResults){
     if(active.current)return;
     const controller=new AbortController();
     active.current=controller;
-    setState({status:"loading"});
+    setState(previous?{status:"ready",...previous,loadingMore:true}:{status:"loading"});
     try{
-      const jobs=await fetchWebJobs(query,controller.signal);
+      const terms=previous?`职位详情 ${query}`.slice(0,240):query;
+      const jobs=await fetchWebJobs(terms,controller.signal,webJobLimit);
       if(!controller.signal.aborted){
-        rememberWebSearch(query,jobs);
-        setState({status:"ready",jobs});
+        showResults({
+          jobs:previous?mergeWebJobs(previous.jobs,jobs,webJobLimit):jobs,
+          visibleCount:previous?Math.min(previous.visibleCount+webJobPageSize,webJobLimit):webJobPageSize,
+          searchedMore:Boolean(previous),
+        });
       }
     }catch(error){
-      if(!controller.signal.aborted)setState({status:"error",message:error instanceof Error?error.message:"联网搜索失败，请稍后再试。"});
+      if(!controller.signal.aborted){
+        const message=error instanceof Error?error.message:"联网搜索失败，请稍后再试。";
+        setState(previous?{status:"ready",...previous,moreError:message}:{status:"error",message});
+      }
     }finally{
       if(active.current===controller)active.current=null;
     }
   }
 
-  return <section className="hire-web-results" aria-labelledby="web-results-heading" aria-busy={state.status==="loading"}>
+  const busy=state.status==="loading"||(state.status==="ready"&&state.loadingMore);
+  const remaining=state.status==="ready"?Math.max(0,state.jobs.length-state.visibleCount):0;
+
+  return <section className="hire-web-results" aria-labelledby="web-results-heading" aria-busy={busy}>
     <div className="hire-web-toolbar">
       <div className="hire-web-heading">
         <span className="hire-company-mark"><Globe size={20} aria-hidden="true"/></span>
@@ -91,7 +106,7 @@ export function WebJobResults({query}:{query:string}){
       </div>
       <div className="hire-web-controls">
         <Link className="hire-apply" href="/jobs/settings/">搜索设置</Link>
-        <button type="button" className="button secondary" onClick={search} disabled={state.status==="loading"}>
+        <button type="button" className="button secondary" onClick={()=>void search()} disabled={busy}>
           {state.status==="loading"?"正在联网搜索…":state.status==="idle"?"搜索外部岗位":"重新搜索"}
         </button>
       </div>
@@ -99,11 +114,20 @@ export function WebJobResults({query}:{query:string}){
     <div role="status">
       {state.status==="error"&&<p className="hire-web-status hire-web-warning"><CircleAlert size={16} aria-hidden="true"/>{state.message}</p>}
       {state.status==="ready"&&<p className="hire-web-status">{state.jobs.length
-        ?`找到 ${state.jobs.length} 条外部岗位`
+        ?`${state.searchedMore&&!remaining?"已显示全部":"找到"} ${state.jobs.length} 条外部岗位${remaining?`，已显示 ${state.visibleCount} 条`:""}`
         :"没有找到新的招聘原页。可以换个岗位关键词或放宽城市条件。"}</p>}
     </div>
     {state.status==="ready"&&state.jobs.length>0&&
-      <div className="hire-role-list">{state.jobs.map(job=><WebJobCard key={job.sourceUrl} job={job} searchQuery={query}/>)}</div>}
+      <div className="hire-role-list">{state.jobs.slice(0,state.visibleCount).map(job=><WebJobCard key={job.sourceUrl} job={job} searchQuery={query}/>)}</div>}
+    {state.status==="ready"&&(remaining>0||(!state.searchedMore&&state.jobs.length<webJobLimit))&&
+      <div className="hire-web-more">
+        <button type="button" className="button secondary" disabled={busy} onClick={()=>{
+          const {jobs,visibleCount,searchedMore}=state;
+          if(remaining)showResults({jobs,visibleCount:Math.min(visibleCount+webJobPageSize,webJobLimit),searchedMore});
+          else void search({jobs,visibleCount:jobs.length,searchedMore});
+        }}>{state.loadingMore?"正在搜索更多岗位…":"查看更多岗位"}</button>
+        {state.moreError&&<p role="status" className="hire-web-status hire-web-warning"><CircleAlert size={16} aria-hidden="true"/>{state.moreError}</p>}
+      </div>}
   </section>;
 }
 

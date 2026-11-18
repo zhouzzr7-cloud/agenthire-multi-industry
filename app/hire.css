@@ -189,6 +189,7 @@ footer{background:#edf0e7;color:#374938;border-color:var(--border)}
 .hire-web-results .button,.hire-refresh-actions .button{min-height:40px;padding-inline:12px;gap:7px;font-size:14px}
 .hire-web-status{display:flex;align-items:flex-start;gap:7px;margin-top:12px;font-size:14px;line-height:1.55;color:var(--muted)}
 .hire-web-status svg{margin-top:3px}
+.hire-web-more{display:grid;justify-items:center;margin-top:16px}
 .hire-web-warning,.hire-web-success{border:1px solid var(--border);border-radius:8px;padding:9px 11px}
 .hire-web-warning{background:#fbf5e8;border-color:#eadbb3;color:#72561e}
 .hire-web-success{background:#eaf3e3;border-color:#d6e4ce;color:var(--accent)}

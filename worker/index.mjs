@@ -123,7 +123,7 @@ export default {
           console.warn("Unable to read public job details",error.message);
           return null;
         });
-        if(!details||(!details.responsibilities.length&&!details.requirements.length))return json({error:"source_details_unavailable"},404);
+        if(!details||(!details.responsibilities.length&&!details.requirements.length&&!details.preferredQualifications?.length))return json({error:"source_details_unavailable"},404);
         return Response.json(details,{headers:{"Cache-Control":"public, max-age=900","X-Content-Type-Options":"nosniff"}});
       }
       if(path==="/api/jobs/search"&&request.method==="POST"){
