@@ -3,7 +3,6 @@ import {webJobSummaryRows} from "./web-job-summary";
 
 export type WebJob = {title:string;snippet:string;publishedAt:string|null;source:string;sourceUrl:string;hostname:string;fetchedAt?:string};
 export type WebSearchResults = {jobs:WebJob[];visibleCount:number;completedFollowUps:number};
-export const webJobLimit=50;
 export const webJobPageSize=12;
 export const webJobFollowUpTerms=["职位详情","招聘公告","高校就业网","企业招聘","岗位职责"] as const;
 export const preferencesKey="agenthire.web-refresh.preferences";
@@ -24,7 +23,7 @@ export function webJobKey(value:string|null){
   }catch{return null;}
 }
 
-export function mergeWebJobs(latest:WebJob[],previous:WebJob[],limit:number){
+export function mergeWebJobs(latest:WebJob[],previous:WebJob[],limit:number|null=null){
   const seen=new Set<string>();
   return [...latest,...previous].filter(job=>{
     if(!job||typeof job.title!=="string"||typeof job.sourceUrl!=="string"||typeof job.source!=="string"||typeof job.snippet!=="string"||typeof job.hostname!=="string")return false;
@@ -32,7 +31,7 @@ export function mergeWebJobs(latest:WebJob[],previous:WebJob[],limit:number){
     if(!key||seen.has(key))return false;
     seen.add(key);
     return true;
-  }).slice(0,limit);
+  }).slice(0,limit??undefined);
 }
 
 export function readWebRefreshPreferences(){
@@ -41,23 +40,23 @@ export function readWebRefreshPreferences(){
     return {
       city:typeof saved?.city==="string"?saved.city.slice(0,48):"",
       keywords:typeof saved?.keywords==="string"?saved.keywords.slice(0,180):"",
-      limit:Number.isInteger(saved?.limit)&&saved.limit>=1&&saved.limit<=webJobLimit?saved.limit as number:webJobLimit,
+      limit:Number.isSafeInteger(saved?.limit)&&saved.limit>=1?saved.limit as number:null,
     };
-  }catch{return {city:"",keywords:"",limit:webJobLimit};}
+  }catch{return {city:"",keywords:"",limit:null};}
 }
 
 function readSavedWebJobs(){
   try{
     const rows=JSON.parse(localStorage.getItem(webFeedKey)??"null");
-    return Array.isArray(rows)?mergeWebJobs([],rows,webJobLimit):[];
+    return Array.isArray(rows)?mergeWebJobs([],rows):[];
   }catch{return [];}
 }
 
 export function readWebJobs(){
-  return readSavedWebJobs().slice(0,readWebRefreshPreferences().limit);
+  return readSavedWebJobs().slice(0,readWebRefreshPreferences().limit??undefined);
 }
 
-export function saveWebJobs(jobs:WebJob[],limit:number){
+export function saveWebJobs(jobs:WebJob[],limit:number|null){
   const previous=readSavedWebJobs();
   const known=new Set(previous.map(job=>webJobKey(job.sourceUrl)));
   const fetchedAt=new Date().toISOString();
@@ -74,13 +73,13 @@ export function webJobHref(job:WebJob){
 function readRecentWebJobs():WebJob[]{
   try{
     const rows=JSON.parse(sessionStorage.getItem(recentWebJobsKey)??"null");
-    return Array.isArray(rows)?mergeWebJobs(recentWebJobs,rows,webJobLimit):recentWebJobs;
+    return Array.isArray(rows)?mergeWebJobs(recentWebJobs,rows):recentWebJobs;
   }catch{return recentWebJobs;}
 }
 
 export function rememberWebJobs(jobs:WebJob[]){
   const fetchedAt=new Date().toISOString();
-  recentWebJobs=mergeWebJobs(jobs.map(job=>({...job,fetchedAt:job.fetchedAt??fetchedAt})),readRecentWebJobs(),webJobLimit);
+  recentWebJobs=mergeWebJobs(jobs.map(job=>({...job,fetchedAt:job.fetchedAt??fetchedAt})),readRecentWebJobs());
   try{
     sessionStorage.setItem(recentWebJobsKey,JSON.stringify(recentWebJobs));
   }catch{}
@@ -101,9 +100,9 @@ export function findRememberedWebSearch(query?:string){
     if(typeof saved?.query==="string"&&saved.query.trim()&&saved.query.length<=240
       &&(query===undefined||saved.query===query)&&Array.isArray(saved.jobs))return {
       query:saved.query as string,
-      jobs:mergeWebJobs([],saved.jobs,webJobLimit),
-      visibleCount:Number.isInteger(saved.visibleCount)&&saved.visibleCount>=webJobPageSize
-        ?Math.min(saved.visibleCount,webJobLimit):webJobPageSize,
+      jobs:mergeWebJobs([],saved.jobs),
+      visibleCount:Number.isSafeInteger(saved.visibleCount)&&saved.visibleCount>=webJobPageSize
+        ?saved.visibleCount as number:webJobPageSize,
       completedFollowUps:Number.isInteger(saved.completedFollowUps)&&saved.completedFollowUps>=0
         ?Math.min(saved.completedFollowUps,webJobFollowUpTerms.length)
         :Number(saved.searchedMore===true),

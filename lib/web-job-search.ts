@@ -4,6 +4,7 @@ import {isSearchProvider,searchProviderLabels} from "./web-search-providers.mjs"
 export type SearchProvider=keyof typeof searchProviderLabels;
 export const searchAccessKey="agenthire.web-search.session";
 export const webRefreshNoticeKey="agenthire.web-refresh.notice";
+export const webJobBatchSize=50;
 
 export function readSearchAccess():{provider:SearchProvider;apiKey:string}|undefined{
   try{
@@ -20,7 +21,7 @@ export const webSearchErrors:Record<string,string>={
   invalid_provider:"请选择可用的联网搜索服务商。",
   invalid_api_key:"请填写有效的 API Key。",
   web_search_unavailable:"联网搜索暂时不可用，请稍后再试。",
-  invalid_limit:"请输入 1 到 50 之间的整数。",
+  invalid_limit:"联网请求的批次数量有误。",
 };
 
 export async function fetchWebJobs(query:string,signal:AbortSignal,limit:number){
@@ -49,19 +50,20 @@ function comparableQuery(query:string){
     .replace(/\s+/gu," ").replace(/(?<=\p{Script=Han}) (?=\p{Script=Han})/gu,"");
 }
 
-export async function refreshWebJobs(preferredQuery:string,limit:number,signal?:AbortSignal){
+export async function refreshWebJobs(preferredQuery:string,limit:number|null,signal?:AbortSignal){
   const saved=findRememberedWebSearch();
   const query=preferredQuery||saved?.query||"";
   const queries=query?[query,...webJobFollowUpTerms.map(prefix=>`${prefix} ${query}`.slice(0,240))]
     :["校园招聘","实习招聘","校招 招聘公告","高校就业网 实习招聘","应届生招聘","企业招聘 实习"];
-  let jobs=saved&&comparableQuery(saved.query)===comparableQuery(query)?saved.jobs.slice(0,limit):[];
+  let jobs=saved&&comparableQuery(saved.query)===comparableQuery(query)?saved.jobs.slice(0,limit??undefined):[];
+  const batchSize=Math.min(limit??webJobBatchSize,webJobBatchSize);
   let partial=false;
   for(const [index,terms] of queries.entries()){
-    if(index>0&&jobs.length>=limit)break;
+    if(index>0&&limit!==null&&jobs.length>=limit)break;
     signal?.throwIfAborted();
     try{
       const timeout=AbortSignal.timeout(12_000);
-      const batch=await fetchWebJobs(terms,signal?AbortSignal.any([signal,timeout]):timeout,limit);
+      const batch=await fetchWebJobs(terms,signal?AbortSignal.any([signal,timeout]):timeout,batchSize);
       jobs=index===0?mergeWebJobs(batch,jobs,limit):mergeWebJobs(jobs,batch,limit);
     }catch(error){
       signal?.throwIfAborted();
@@ -78,5 +80,6 @@ export async function refreshWebJobs(preferredQuery:string,limit:number,signal?:
 export function formatWebRefreshNotice({query,found,added,total,limit,removed,partial}:Awaited<ReturnType<typeof refreshWebJobs>>){
   const counts=found?`找到 ${found} 条，新增 ${added} 条`:"没有找到匹配岗位";
   const changes=removed?`，移出 ${removed} 条旧结果`:"";
-  return `联网搜索「${query}」${counts}。列表保留 ${total}/${limit} 条${changes}。${partial?"部分搜索未完成。":""}`;
+  const capacity=limit===null?`${total}`:`${total}/${limit}`;
+  return `联网搜索「${query}」${counts}。列表保留 ${capacity} 条${changes}。${partial?"部分搜索未完成。":""}`;
 }

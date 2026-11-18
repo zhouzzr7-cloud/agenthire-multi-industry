@@ -4,8 +4,8 @@ import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {ArrowLeft,ArrowUpRight,Check,CircleAlert,Globe,RefreshCw,Settings} from "lucide-react";
-import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebRefreshPreferences,rememberWebSearch,webJobFollowUpTerms,webJobHref,webJobLimit,webJobPageSize,type WebJob,type WebSearchResults} from "@/lib/web-job-feed";
-import {fetchWebJobs,formatWebRefreshNotice,readSearchAccess,refreshWebJobs,searchAccessKey,webRefreshNoticeKey,webSearchErrors,type SearchProvider} from "@/lib/web-job-search";
+import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebRefreshPreferences,rememberWebSearch,webJobFollowUpTerms,webJobHref,webJobPageSize,type WebJob,type WebSearchResults} from "@/lib/web-job-feed";
+import {fetchWebJobs,formatWebRefreshNotice,readSearchAccess,refreshWebJobs,searchAccessKey,webJobBatchSize,webRefreshNoticeKey,webSearchErrors,type SearchProvider} from "@/lib/web-job-search";
 import {withAiSearchQuery} from "@/lib/ai-search-navigation";
 import {isSearchProvider,searchProviderLabels} from "@/lib/web-search-providers.mjs";
 
@@ -33,13 +33,13 @@ export function WebJobResults({query}:{query:string}){
     active.current=controller;
     setState(previous?{status:"ready",...previous,loadingMore:true}:{status:"loading"});
     try{
-      const jobs=await fetchWebJobs(terms,controller.signal,webJobLimit);
+      const jobs=await fetchWebJobs(terms,controller.signal,webJobBatchSize);
       if(!controller.signal.aborted){
-        const matches=previous?mergeWebJobs(previous.jobs,jobs,webJobLimit):jobs;
+        const matches=previous?mergeWebJobs(previous.jobs,jobs):jobs;
         const moreMessage=previous&&matches.length===previous.jobs.length?"这轮没有找到新岗位，可以继续搜索。":undefined;
         showResults({
           jobs:matches,
-          visibleCount:previous?Math.min(previous.visibleCount+webJobPageSize,webJobLimit):webJobPageSize,
+          visibleCount:previous?previous.visibleCount+webJobPageSize:webJobPageSize,
           completedFollowUps:previous?previous.completedFollowUps+1:0,
         },moreMessage);
       }
@@ -55,7 +55,7 @@ export function WebJobResults({query}:{query:string}){
 
   const busy=state.status==="loading"||(state.status==="ready"&&state.loadingMore);
   const remaining=state.status==="ready"?Math.max(0,state.jobs.length-state.visibleCount):0;
-  const followUp=state.status==="ready"&&state.jobs.length<webJobLimit?webJobFollowUpTerms[state.completedFollowUps]:undefined;
+  const followUp=state.status==="ready"?webJobFollowUpTerms[state.completedFollowUps]:undefined;
 
   return <section className="hire-web-results" aria-labelledby="web-results-heading" aria-busy={busy}>
     <div className="hire-web-toolbar">
@@ -83,19 +83,19 @@ export function WebJobResults({query}:{query:string}){
         {remaining>0||followUp?<>
           <button type="button" className="button secondary" disabled={busy} onClick={()=>{
             const {jobs,visibleCount,completedFollowUps}=state;
-            if(remaining)showResults({jobs,visibleCount:Math.min(visibleCount+webJobPageSize,webJobLimit),completedFollowUps});
+            if(remaining)showResults({jobs,visibleCount:visibleCount+webJobPageSize,completedFollowUps});
             else if(followUp)void search(`${followUp} ${query}`.slice(0,240),{jobs,visibleCount:jobs.length,completedFollowUps});
           }}>{state.loadingMore?"正在搜索更多岗位…":"查看更多岗位"}</button>
           {state.moreMessage&&<p role="status" className="hire-web-status">{state.moreMessage}</p>}
           {state.moreError&&<p role="status" className="hire-web-status hire-web-warning"><CircleAlert size={16} aria-hidden="true"/>{state.moreError}</p>}
-        </>:<p role="status" className="hire-web-status">{state.jobs.length>=webJobLimit?`已达到 ${webJobLimit} 条展示上限。`:"本次联网搜索已结束，可以换个关键词继续找。"}</p>}
+        </>:<p role="status" className="hire-web-status">本次联网搜索已结束，可以换个关键词继续找。</p>}
       </div>}
   </section>;
 }
 
 export function WebJobSettings(){
   const router=useRouter();
-  const [preferences,setPreferences]=useState({city:"",keywords:"",limit:String(webJobLimit)});
+  const [preferences,setPreferences]=useState({city:"",keywords:"",limit:""});
   const [provider,setProvider]=useState<SearchProvider|"site">("site");
   const [apiKey,setApiKey]=useState("");
   const [notice,setNotice]=useState<{type:"success"|"warning";message:string}>();
@@ -108,17 +108,17 @@ export function WebJobSettings(){
       setApiKey(access.apiKey);
     }
     const saved=readWebRefreshPreferences();
-    setPreferences({...saved,limit:String(saved.limit)});
+    setPreferences({...saved,limit:saved.limit===null?"":String(saved.limit)});
     return ()=>active.current?.abort();
   },[]);
 
   async function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
     if(active.current)return;
-    const limit=Number(preferences.limit);
+    const limit=preferences.limit.trim()?Number(preferences.limit):null;
     const terms=[preferences.city.trim(),preferences.keywords.trim()].filter(Boolean).join(" ");
     const refresh=(event.nativeEvent as SubmitEvent).submitter?.getAttribute("value")==="refresh";
-    if(!Number.isInteger(limit)||limit<1||limit>webJobLimit){setNotice({type:"warning",message:webSearchErrors.invalid_limit});return;}
+    if(limit!==null&&(!Number.isSafeInteger(limit)||limit<1)){setNotice({type:"warning",message:"请输入正整数，或留空以保留全部结果。"});return;}
     const key=apiKey.trim();
     if(provider!=="site"&&!/^[!-~]{1,512}$/.test(key)){
       setNotice({type:"warning",message:webSearchErrors.invalid_api_key});
@@ -174,7 +174,7 @@ export function WebJobSettings(){
             onChange={event=>setPreferences({...preferences,keywords:event.target.value})}/>
         </label>
         <label className="hire-filter-select"><span>最多保留的外部岗位数</span>
-          <input type="number" min={1} max={webJobLimit} step={1} required value={preferences.limit}
+          <input type="number" min={1} step={1} placeholder="留空不限" value={preferences.limit}
             onChange={event=>setPreferences({...preferences,limit:event.target.value})}/>
         </label>
       </fieldset>

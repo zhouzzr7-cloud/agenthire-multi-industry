@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {findRememberedWebSearch,findStoredWebJob,matchesWebJob,mergeWebJobs,readWebJobs,rememberWebJobs,saveWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
+import {findRememberedWebSearch,findStoredWebJob,matchesWebJob,mergeWebJobs,preferencesKey,readWebJobs,readWebRefreshPreferences,rememberWebJobs,saveWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
 import {aiSearchHref,withAiSearchQuery} from "../lib/ai-search-navigation";
 import {refreshWebJobs} from "../lib/web-job-search";
 import {webJobSummaryRows,webJobSummarySections} from "../lib/web-job-summary";
@@ -98,6 +98,24 @@ test("refresh combines external search batches and counts newly saved recruitmen
   const latest={...base,sourceUrl:base.sourceUrl+"4"};
   assert.deepEqual(saveWebJobs([latest],3),{added:1,total:3,removed:1});
   assert.deepEqual(readWebJobs().map(job=>job.sourceUrl),[latest.sourceUrl,base.sourceUrl,other.sourceUrl]);
+
+  const bulkJobs=Array.from({length:100},(_,index)=>({...base,sourceUrl:`${base.sourceUrl}_bulk_${index}`}));
+  request.mock.mockImplementation(async(_url:string,options:{body:string})=>{
+    const {query,limit}=JSON.parse(options.body);
+    assert.equal(limit,50);
+    const start=query.startsWith("职位详情 ")?50:0;
+    return Response.json({matches:bulkJobs.slice(start,start+50)});
+  });
+  storage.set(preferencesKey,JSON.stringify({limit:100}));
+  assert.equal(readWebRefreshPreferences().limit,100);
+  assert.deepEqual(await refreshWebJobs("北京计算机",100),{
+    query:"北京计算机",found:100,added:100,total:100,removed:3,limit:100,partial:false,
+  });
+  assert.equal(readWebJobs().length,100);
+  storage.set(preferencesKey,JSON.stringify({limit:null}));
+  assert.equal(readWebRefreshPreferences().limit,null);
+  assert.deepEqual(saveWebJobs([latest],null),{added:1,total:101,removed:0});
+  assert.equal(readWebJobs().length,101);
 });
 
 test("external announcement snippets show only complete role, degree, and headcount rows",()=>{
