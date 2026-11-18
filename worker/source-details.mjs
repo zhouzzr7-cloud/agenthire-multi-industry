@@ -24,7 +24,14 @@ function parseInternship(html){
 }
 
 export function parseSourceDetails(sourceUrl,html){
-  if(new URL(sourceUrl).hostname==="www.shixiseng.com")return parseInternship(html);
+  const host=new URL(sourceUrl).hostname;
+  if(host==="www.shixiseng.com")return parseInternship(html);
+  if(host==="jy.usx.edu.cn"){
+    const facts=html.match(/<div\b[^>]*class="details-list"[^>]*>([\s\S]*?)<\/ul>/iu)?.[1]??"";
+    const requirements=[...facts.matchAll(/<li\b[^>]*>\s*(工作经验|语言要求|需求专业|学历要求)\s*[:：]\s*<span\b[^>]*>([\s\S]*?)<\/span>/giu)]
+      .map(([,label,value])=>`${label}：${clean(value)}`);
+    return {responsibilities:[],requirements};
+  }
   const duties=html.match(/>\s*岗位职责\s*<\/div>\s*(?:<!--\s*-->)?\s*<div\b[^>]*>([\s\S]*?)<\/div>/iu)?.[1]??"";
   const requirements=html.match(/>\s*岗位要求\s*<\/div>\s*(?:<!--\s*-->)?\s*<div\b[^>]*>([\s\S]*?)<\/div>/iu)?.[1]??"";
   return {responsibilities:jobPoints(stripSectionPrefix(duties)),requirements:jobPoints(stripSectionPrefix(requirements))};

@@ -56,7 +56,7 @@ export function AIJobSearch({query,liveJobs}:{query:string;liveJobs:Job[]}){
     const job=jobsById.get(match.id);
     return job?[{job,reason:match.reason}]:[];
   })??[];
-  return <div className="container hire-board">
+  return <div className="container hire-board hire-ai-board">
     <section className="hire-board-head">
       <div className="hire-board-title"><div><h1>AI 找岗位</h1><p>搜索计算机、财会、运营和制造方向的校招或实习。</p></div>
         <Link href="/jobs/" className="hire-apply">返回手动筛选 <ArrowRight size={16}/></Link>
@@ -65,12 +65,13 @@ export function AIJobSearch({query,liveJobs}:{query:string;liveJobs:Job[]}){
     </section>
     <WebJobResults key={query} query={query}/>
     <section className="hire-results" aria-label="岗位匹配结果" aria-busy={!result}>
+      <h2 className="hire-ai-results-title">站内岗位</h2>
       {!result?<p className="hire-empty" role="status">正在匹配岗位…</p>:<>
         <div className="hire-results-bar" aria-live="polite">
           <div><strong>{matches.length}</strong> 个匹配岗位</div>
           <small>{result.mode==="deepseek"?"DeepSeek 解析 · 站内岗位":result.mode==="fallback"?"模型暂不可用 · 按站内规则匹配":"按站内规则匹配"}</small>
         </div>
-        {matches.length?<div className="hire-role-list">{matches.map(({job,reason})=><JobCard key={job.id} job={job} matchReason={reason}/>)}</div>:
+        {matches.length?<div className="hire-role-list">{matches.map(({job,reason})=><JobCard key={job.id} job={job} matchReason={reason} searchQuery={query}/>)}</div>:
           <div className="hire-empty"><h2>没有匹配的岗位</h2><p>试着调整城市、岗位类型或学历条件。</p></div>}
       </>}
     </section>

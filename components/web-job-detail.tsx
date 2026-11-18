@@ -3,9 +3,11 @@
 import Link from "next/link";
 import {useSearchParams} from "next/navigation";
 import {useEffect,useState} from "react";
-import {ArrowLeft, ArrowUpRight, Globe, Info} from "lucide-react";
+import {ArrowUpRight, Globe, Info} from "lucide-react";
 import {findStoredWebJob,type WebJob} from "@/lib/web-job-feed";
 import {JobDescriptionSections} from "@/components/job-description-sections";
+import {JobDetailNavigation} from "@/components/job-detail-navigation";
+import {webJobSummaryRows,webJobSummarySections} from "@/lib/web-job-summary";
 
 export function WebJobDetail(){
   const id=useSearchParams().get("id");
@@ -19,9 +21,11 @@ export function WebJobDetail(){
     <Link href="/jobs/">返回岗位列表</Link>
   </div></div>;
   const fetchedAt=Date.parse(job.fetchedAt??"");
+  const roles=webJobSummaryRows(job.snippet);
+  const sections=roles.length?undefined:webJobSummarySections(job.snippet);
 
   return <div className="container detail">
-    <Link className="back-link" href="/jobs/"><ArrowLeft size={15} aria-hidden="true"/>全部岗位</Link>
+    <JobDetailNavigation web/>
     <div className="detail-header">
       <div className="company-mark large" aria-hidden="true"><Globe size={26}/></div>
       <div><div className="job-company">{job.source}<span className="status">外部招聘</span></div>
@@ -33,8 +37,18 @@ export function WebJobDetail(){
         <div className="demo-banner"><Info size={19} aria-hidden="true"/><div>
           <strong>在招状态待核实</strong><p>请在招聘原页确认岗位当前是否开放、是否符合投递资格。</p>
         </div></div>
-        <section><h2>岗位摘要</h2><p>{job.snippet||"联网结果提供了岗位标题和招聘链接。"}</p></section>
-        <JobDescriptionSections sourceUrl={job.sourceUrl}/>
+        {roles.length>0&&<section>
+          <h2>公告内岗位</h2>
+          <div className="detail-roles-table"><table>
+            <caption className="sr-only">网页摘要中可识别的岗位</caption>
+            <thead><tr><th scope="col">岗位</th><th scope="col">学历</th><th scope="col">需求人数</th></tr></thead>
+            <tbody>{roles.map(role=><tr key={role.title}><th scope="row">{role.title}</th><td>{role.education}</td><td>{role.headcount}</td></tr>)}</tbody>
+          </table></div>
+          <p className="small-copy">根据网页搜索摘要整理，完整名单以招聘原页为准。</p>
+          <details className="detail-snippet"><summary>查看网页摘要</summary><p>{job.snippet}</p></details>
+        </section>}
+        {!roles.length&&job.snippet&&<section><h2>网页摘要</h2><p>{job.snippet}</p></section>}
+        <JobDescriptionSections sourceUrl={job.sourceUrl} {...sections} compact fromSnippet/>
         <section>
           <h2>数据来源</h2>
           <dl className="source-grid">

@@ -105,7 +105,7 @@ export async function findWebJobs({query,apiKey,provider="deepseek",knownUrls=[]
     const key = urlKey(url);
     if (seen.has(key)) continue;
     const title = shortText(result.title ?? result.name, 160);
-    const snippet = shortText(result.snippet ?? result.description ?? result.content ?? result.highlights?.[0], 220);
+    const snippet = shortText(result.snippet ?? result.description ?? result.content ?? result.highlights?.[0], 700);
     if (!title || /招聘会汇总|求职经验|招聘攻略|已停止接受|该岗位已关闭|该职位已下线|该职位已结束招聘/u.test(title + snippet)) continue;
     const date = result.date ?? result.datePublished ?? result.publishedDate ?? result.published_date;
     const publishedAt = typeof date==="string"&&/^\d{4}-\d{2}-\d{2}(?:T|$)/u.test(date)?date.slice(0,10):null;

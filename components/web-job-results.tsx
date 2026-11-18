@@ -4,7 +4,8 @@ import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {ArrowLeft,ArrowUpRight,Check,CircleAlert,Globe,RefreshCw,Settings} from "lucide-react";
-import {mergeWebJobs,preferencesKey,readWebJobs,rememberWebJobs,webFeedKey,webJobHref,webJobLimit,type WebJob} from "@/lib/web-job-feed";
+import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebJobs,rememberWebSearch,webFeedKey,webJobHref,webJobLimit,type WebJob} from "@/lib/web-job-feed";
+import {withAiSearchQuery} from "@/lib/ai-search-navigation";
 import {isSearchProvider,searchProviderLabels} from "@/lib/web-search-providers.mjs";
 
 type State =
@@ -59,7 +60,11 @@ async function fetchWebJobs(query:string,signal:AbortSignal,limit?:number){
 export function WebJobResults({query}:{query:string}){
   const [state,setState]=useState<State>({status:"idle"});
   const active=useRef<AbortController|null>(null);
-  useEffect(()=>()=>active.current?.abort(),[]);
+  useEffect(()=>{
+    const jobs=findRememberedWebSearch(query);
+    if(jobs)setState({status:"ready",jobs});
+    return ()=>active.current?.abort();
+  },[query]);
   async function search(){
     if(active.current)return;
     const controller=new AbortController();
@@ -68,7 +73,7 @@ export function WebJobResults({query}:{query:string}){
     try{
       const jobs=await fetchWebJobs(query,controller.signal);
       if(!controller.signal.aborted){
-        rememberWebJobs(jobs);
+        rememberWebSearch(query,jobs);
         setState({status:"ready",jobs});
       }
     }catch(error){
@@ -98,7 +103,7 @@ export function WebJobResults({query}:{query:string}){
         :"没有找到新的招聘原页。可以换个岗位关键词或放宽城市条件。"}</p>}
     </div>
     {state.status==="ready"&&state.jobs.length>0&&
-      <div className="hire-role-list">{state.jobs.map(job=><WebJobCard key={job.sourceUrl} job={job}/>)}</div>}
+      <div className="hire-role-list">{state.jobs.map(job=><WebJobCard key={job.sourceUrl} job={job} searchQuery={query}/>)}</div>}
   </section>;
 }
 
@@ -229,8 +234,8 @@ export function WebJobSettings(){
   </div>;
 }
 
-export function WebJobCard({job}:{job:WebJob}){
-  const href=webJobHref(job);
+export function WebJobCard({job,searchQuery}:{job:WebJob;searchQuery?:string}){
+  const href=withAiSearchQuery(webJobHref(job),searchQuery);
   return <article className="job-card hire-role hire-web-card">
         <div className="hire-company-mark" aria-hidden="true"><Globe size={20}/></div>
         <div className="hire-role-body">

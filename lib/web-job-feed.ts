@@ -3,6 +3,7 @@ export const webJobLimit=50;
 export const preferencesKey="agenthire.web-refresh.preferences";
 export const webFeedKey="agenthire.web-refresh.results";
 const recentWebJobsKey="agenthire.web-search.recent-results";
+const lastWebSearchKey="agenthire.web-search.last-query";
 let recentWebJobs:WebJob[]=[];
 
 export function webJobKey(value:string|null){
@@ -58,6 +59,19 @@ export function rememberWebJobs(jobs:WebJob[]){
 
 export function findStoredWebJob(id:string|null){
   return id?[...readRecentWebJobs(),...readWebJobs()].find(job=>webJobKey(job.sourceUrl)===id):undefined;
+}
+
+export function rememberWebSearch(query:string,jobs:WebJob[]){
+  rememberWebJobs(jobs);
+  try{sessionStorage.setItem(lastWebSearchKey,JSON.stringify({query,jobs}));}catch{}
+}
+
+export function findRememberedWebSearch(query:string){
+  try{
+    const saved=JSON.parse(sessionStorage.getItem(lastWebSearchKey)??"null");
+    if(saved?.query===query&&Array.isArray(saved.jobs))return mergeWebJobs([],saved.jobs,webJobLimit);
+  }catch{}
+  return null;
 }
 
 export function matchesWebJob(job:WebJob,params:URLSearchParams){

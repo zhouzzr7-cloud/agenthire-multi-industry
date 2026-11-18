@@ -1,14 +1,16 @@
 import Link from "next/link";
 import {ArrowUpRight, MapPin} from "lucide-react";
 import {type Job, categories, educationLabels, hasSmallHeadcount, jobHref, statusLabels} from "@/lib/jobs";
+import {withAiSearchQuery} from "@/lib/ai-search-navigation";
 import {SaveButton} from "./shell";
 
-export function JobCard({job, matchReason}:{job:Job; matchReason?:string}){
+export function JobCard({job, matchReason, searchQuery}:{job:Job; matchReason?:string; searchQuery?:string}){
+  const detailHref=withAiSearchQuery(jobHref(job),searchQuery);
   return <article className="job-card hire-role">
     <div className="hire-company-mark" aria-hidden="true">{job.initials}</div>
     <div className="hire-role-body">
       <div className="hire-role-company">{job.company}{hasSmallHeadcount(job)?<span className="hire-team-tag">{job.companySize}</span>:job.teamType==="startup"?<span className="hire-team-tag">创业团队</span>:null}<span className={"status status-"+job.status}>{statusLabels[job.status]}</span></div>
-      <h3><Link href={jobHref(job)}>{job.title}</Link></h3>
+      <h3><Link href={detailHref}>{job.title}</Link></h3>
       <div className="hire-role-meta">
         <span><MapPin size={14}/>{job.city}</span>
         <span>{job.educationText??educationLabels[job.education]}</span>
@@ -23,7 +25,7 @@ export function JobCard({job, matchReason}:{job:Job; matchReason?:string}){
     <div className="hire-role-actions">
       <SaveButton id={job.id}/>
       {job.salary&&<span className="hire-salary">{job.salary}</span>}
-      <Link href={jobHref(job)} className="hire-apply">查看详情 <ArrowUpRight size={15} aria-hidden="true"/></Link>
+      <Link href={detailHref} className="hire-apply">查看详情 <ArrowUpRight size={15} aria-hidden="true"/></Link>
     </div>
   </article>;
 }

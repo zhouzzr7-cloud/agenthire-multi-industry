@@ -6,7 +6,7 @@ import {jobDetailSourceUrl} from "@/lib/job-detail-sources.mjs";
 type Description = {responsibilities:string[];requirements:string[]};
 
 export function JobDescriptionSections({
-  sourceUrl,responsibilities=[],requirements=[],preferredQualifications=[],reviewed=false,notice=false,
+  sourceUrl,responsibilities=[],requirements=[],preferredQualifications=[],reviewed=false,notice=false,compact=false,fromSnippet=false,
 }:{
   sourceUrl:string|null;
   responsibilities?:string[];
@@ -14,6 +14,8 @@ export function JobDescriptionSections({
   preferredQualifications?:string[];
   reviewed?:boolean;
   notice?:boolean;
+  compact?:boolean;
+  fromSnippet?:boolean;
 }){
   const url=reviewed?null:jobDetailSourceUrl(sourceUrl);
   const [result,setResult]=useState<{url:string;description:Description|null}>();
@@ -32,6 +34,10 @@ export function JobDescriptionSections({
   const loading=Boolean(url&&result?.url!==url);
   const duties=source?.responsibilities.length?source.responsibilities:responsibilities;
   const qualifications=source?.requirements.length?source.requirements:requirements;
+  const snippetUsed=fromSnippet&&Boolean((responsibilities.length&&!source?.responsibilities.length)||(requirements.length&&!source?.requirements.length));
+  if(compact&&!duties.length&&!qualifications.length){
+    return <section className="detail-source-note"><p>{loading?"正在读取招聘原页中的职责和要求…":"具体工作职责和任职要求请查看招聘原页。"}</p></section>;
+  }
   return <>
     <section>
       <h2>工作职责</h2>
@@ -46,7 +52,7 @@ export function JobDescriptionSections({
         <h3>加分项</h3>
         <ul>{preferredQualifications.map(item=><li key={item}>{item}</li>)}</ul>
       </>}
-      {source&&<p className="small-copy">以上补充信息摘自招聘原页。</p>}
+      {source||snippetUsed?<p className="small-copy">{source?(snippetUsed?"根据招聘原页及网页摘要整理。":"以上补充信息摘自招聘原页。"):"上述内容摘自网页搜索摘要。"}</p>:null}
     </section>
   </>;
 }

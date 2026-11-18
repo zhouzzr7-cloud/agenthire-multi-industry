@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {findStoredWebJob,matchesWebJob,mergeWebJobs,rememberWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
+import {aiSearchHref,withAiSearchQuery} from "../lib/ai-search-navigation";
+import {webJobSummaryRows,webJobSummarySections} from "../lib/web-job-summary";
 
 const base:WebJob={
   title:"绍兴财务实习",snippet:"财会相关专业",source:"招聘网",hostname:"www.shixiseng.com",
@@ -29,4 +31,23 @@ test("an external card resolves its canonical link to the browser's remembered r
   assert.equal(href.pathname,"/jobs/web/");
   assert.equal(findStoredWebJob(href.searchParams.get("id"))?.sourceUrl,job.sourceUrl);
   assert.equal(findStoredWebJob("unknown"),undefined);
+});
+
+test("links to job details preserve the original AI query alongside the existing job ID",()=>{
+  const query="杭州 C++ 实习 & 校招";
+  const detail=new URL(withAiSearchQuery(webJobHref(base),query),"https://example.test");
+  assert.equal(detail.searchParams.get("ai"),query);
+  assert.equal(detail.searchParams.get("id"),new URL(webJobHref(base),"https://example.test").searchParams.get("id"));
+  const back=new URL(aiSearchHref(detail.searchParams.get("ai"),"web")!,"https://example.test");
+  assert.equal(back.pathname,"/jobs/");
+  assert.equal(back.searchParams.get("ai"),query);
+  assert.equal(back.hash,"#web-results-heading");
+});
+
+test("external announcement snippets show only complete role, degree, and headcount rows",()=>{
+  const rows=webJobSummaryRows("职位名称: 测试工程师; 学历: 本科,硕士; 需求人数: 17 ... 数据工程师 | 硕士,博士 | 30 ... 运维工程师 | 本科...");
+  assert.deepEqual(rows,[{title:"测试工程师",education:"本科、硕士",headcount:17},{title:"数据工程师",education:"硕士、博士",headcount:30}]);
+  assert.deepEqual(webJobSummarySections("岗位职责：维护测试环境。 任职要求：计算机相关专业。 工作地点：杭州"),{
+    responsibilities:["维护测试环境。"],requirements:["计算机相关专业。"],
+  });
 });

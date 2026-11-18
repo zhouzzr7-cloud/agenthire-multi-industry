@@ -1,5 +1,5 @@
-import Link from "next/link";
-import {ArrowLeft, ArrowUpRight, Info} from "lucide-react";
+import {ArrowUpRight, BriefcaseBusiness, GraduationCap, Info, MapPin} from "lucide-react";
+import {JobDetailNavigation} from "@/components/job-detail-navigation";
 import {type Job, bachelorEligible, categories, educationLabels, jobRecruitmentAction, statusLabels} from "@/lib/jobs";
 import {CopyButton, SaveButton} from "@/components/shell";
 import {JobDescriptionSections} from "@/components/job-description-sections";
@@ -30,13 +30,17 @@ export function JobDetail({job}:{job:Job}){
   if(job.internship)jobFacts.push(["实习安排",job.internship]);
 
   return <div className="container detail">
-    <Link className="back-link" href="/jobs/"><ArrowLeft size={15} aria-hidden="true"/>全部岗位</Link>
+    <JobDetailNavigation/>
     <div className="detail-header">
-      <div className="company-mark large" aria-hidden="true">{job.initials}<span>↗</span></div>
+      <div className="company-mark large" aria-hidden="true">{job.initials}</div>
       <div>
-        <div className="job-company">{job.company}<span className="status">{statusLabels[job.status]}</span></div>
+        <div className="job-company">{job.company}<span className={`status status-${job.status}`}>{statusLabels[job.status]}</span></div>
         <h1>{job.title}</h1>
-        <p>{job.city} <span>·</span> {education} <span>·</span> {job.recruitmentType}</p>
+        <ul className="detail-meta" aria-label="岗位概况">
+          <li><MapPin size={15} aria-hidden="true"/>{job.city}</li>
+          <li><GraduationCap size={16} aria-hidden="true"/>{education}</li>
+          <li><BriefcaseBusiness size={15} aria-hidden="true"/>{job.recruitmentType}</li>
+        </ul>
       </div>
     </div>
     <div className="detail-grid">
