@@ -72,9 +72,7 @@ export function RefreshJobsButton({onRefresh}:{onRefresh:()=>void}){
       const response=await fetch("/api/refresh",{method:"POST",signal:AbortSignal.timeout(180_000)});
       const data=await response.json();
       if(!response.ok)throw new Error();
-      if(data.result==="already_current"){
-        setMessage("刚同步过，请隔 10 分钟再刷新。");
-      }else if(data.result==="refreshed"||data.result==="partially_refreshed"){
+      if(data.result==="refreshed"||data.result==="partially_refreshed"){
         const prefix=data.result==="partially_refreshed"?"部分来源未更新，已保留可用岗位":"同步完成";
         setMessage(prefix+(data.added>0?" · 新增 "+data.added+" 条":" · 没有新增岗位"));
       }else{

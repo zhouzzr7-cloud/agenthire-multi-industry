@@ -8,7 +8,6 @@ import {getCareerJobs,getJobs} from "../lib/jobs.ts";
 
 const maxAge = 36 * 60 * 60 * 1000;
 const interval = 18 * 60 * 60 * 1000;
-const manualInterval = 10 * 60 * 1000;
 const enc = new TextEncoder();
 const collectors = {baidu:getBaiduJobs,index:getIndexJobs,teams:getTeamJobs};
 const shanghaiDate = new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"});
@@ -57,8 +56,7 @@ async function refresh(env,manual=false){
   const snapshot=await read(env);
   const now=Date.now();
   const ready=Object.keys(collectors).every(name=>snapshot.groups[name]);
-  const refreshInterval=manual?manualInterval:interval;
-  if((manual||ready)&&snapshot.refreshedAt&&now-Date.parse(snapshot.refreshedAt)<refreshInterval)return json({result:"already_current",...stats(snapshot)});
+  if(!manual&&ready&&snapshot.refreshedAt&&now-Date.parse(snapshot.refreshedAt)<interval)return json({result:"already_current",...stats(snapshot)});
   const refreshedAt=new Date(now).toISOString();
   const checkedAt=shanghaiDate.format(now);
   const answers=await Promise.allSettled(Object.entries(collectors).map(async([name,collect])=>[name,await collect(fetch,checkedAt)]));
