@@ -1,73 +1,73 @@
 # AgentHire
 
-多行业校招与实习搜索，涵盖计算机与 AI、财会、运营和制造。
+**面向多行业的校招与实习搜索平台**
 
-## Run
+把计算机与 AI、财会、运营和制造岗位集中到一个列表。可以用城市、学历和招聘类型快速筛选，也可以直接描述求职需求。查看岗位详情时，可沿着来源链接核对要求、在招状态和投递入口。
 
-Node.js 22+ and npm:
+[快速开始](#快速开始) · [核心功能](#核心功能) · [技术架构](#技术架构) · [数据说明](#数据说明)
 
-```sh
+## 核心功能
+
+| 功能 | 可以做什么 |
+| --- | --- |
+| 岗位探索 | 按城市、岗位方向、学历、招聘类型和发布时间筛选，收藏感兴趣的岗位。 |
+| AI 找岗位 | 用一句话描述需求，例如「杭州本科，找财务实习」。站内结果会显示匹配理由，未配置模型时可使用规则匹配。 |
+| 联网找岗位 | 使用搜索服务补充招聘原页。结果按链接去重，可继续分批补搜，也可通过刷新写入岗位列表。 |
+| 岗位详情 | 集中展示有来源依据的工作职责、任职要求、投递链接和核验状态。部分来源支持从招聘原页补充正文。 |
+| 岗位同步 | 从公开招聘来源更新岗位。部分来源暂时不可用时，保留已有数据并显示同步状态。 |
+
+## 快速开始
+
+需要 Node.js 22 或更新版本，以及 npm。
+
+```bash
+git clone https://github.com/zhouzzr7-cloud/agenthire-multi-industry.git
+cd agenthire-multi-industry
 npm ci
 npm run dev
-npm test
-npm run typecheck
-npm run build
 ```
 
-`npm run dev` builds the site, initializes the local D1 database, and serves the pages and APIs at `http://127.0.0.1:8787`. Run it again after editing source files to rebuild. `npm run dev:ui` opens the Next.js UI preview at `http://127.0.0.1:3000` with hot reload. The jobs APIs run in Wrangler.
+打开 [本地岗位页](http://127.0.0.1:8787/jobs/)。启动命令会构建页面、初始化本地 D1 数据库，并用 Wrangler 同时提供页面和 API。
 
-The production build exports `out/` and packages the Worker in `dist/server/` as configured in `.openai/hosting.json`.
+内置岗位及规则匹配可以直接使用。要搜索外部招聘信息，打开 [联网刷新设置](http://127.0.0.1:8787/jobs/settings/)，选择服务商并填写自己的 API Key。支持 DeepSeek、博查、Perplexity、Tavily、Brave Search 和 Exa。也可以在项目根目录的 `.env` 中配置站点级 `DEEPSEEK_API_KEY`。
 
-## Current product
+「最多保留的外部岗位数」可以填写正整数，留空时保留全部去重结果。实际收录数量取决于服务商返回的有效招聘链接。
 
-- Editorial homepage, GSAP reveal animations and Lenis scroll coordination.
-- Jobs search, structured education checks, combined filters, URL state, four sort modes.
-- Static detail pages for every known job.
-- Local favorites, mobile filter drawer, reduced motion and keyboard support.
-- Career direction shortcuts, category filters and source verification details.
+## 技术架构
 
-The job board combines curated listings with the latest synchronized feed. Status filters also expose closed and demo records. Check the original listing for current availability and application requirements.
+页面由 **Next.js、React 和 TypeScript** 构建并静态导出。**Cloudflare Worker** 提供页面资源、站内搜索、外部搜索和来源详情接口。自动同步的岗位快照存储在 **Cloudflare D1**。
 
-Every real record retains its source URL, source-check date, application destination, and classification evidence. Missing fields remain unknown. Daily and foreign-currency salaries are not converted into monthly rates. Public application links lead to the original recruiting page or the application form explicitly named in the announcement; no application is submitted by AgentHire.
+| 目录 | 职责 |
+| --- | --- |
+| [`app/`](app/) 与 [`components/`](components/) | 页面、搜索交互、筛选和岗位详情 |
+| [`lib/`](lib/) | 岗位数据、匹配规则与浏览器存储 |
+| [`worker/`](worker/) | 搜索 API、来源采集和同步 |
+| [`drizzle/`](drizzle/) | D1 数据库迁移 |
+| [`tests/`](tests/) | 岗位筛选、搜索、去重和来源解析测试 |
 
-## Structure
+```bash
+npm test
+node --test tests/job-search.test.mjs
+npm run build
+npm run typecheck
+```
 
-- `app/`: Next.js routes and shared stylesheet.
-- `components/`: shell, motion, reusable job card and search/filter interface.
-- `lib/jobs.ts`: typed records, demo fixtures, replaceable access functions, filtering and recommendation rules.
-- `lib/real-jobs.ts`: sourced recruiting summaries, application links and verification notes.
-- `tests/jobs.test.ts`: education, synonyms, combined filters, data truthfulness and ranking checks.
+`npm run dev:ui` 可在 [3000 端口](http://127.0.0.1:3000/) 热更新页面，完整的岗位 API 由 Wrangler 提供。生产构建将页面导出到 `out/`，并生成可部署的 `dist/server/index.js`。
 
-The UI is purpose-built with semantic HTML, CSS and Lucide icons. No unused component framework is added. GSAP and Lenis are bundled locally; no remote animation CDN or paid API is required.
+## 数据说明
 
-## Data replacement
+- 岗位列表结合人工整理的记录、公开来源同步及浏览器中保存的联网结果。投递资格、截止日期与开放状态以招聘原页为准。
+- 新增和更新岗位时，按招聘原页整理职责、要求和加分项，保留来源及核验记录。缺失字段标为未知。维护规则见 [AGENTS.md](AGENTS.md)。
+- 收藏、刷新设置和收录的外部岗位保存在当前浏览器。AI 联网搜索的当前结果和个人 API Key 保存在标签页会话中，搜索时由 Worker 将 Key 转交所选服务商。
+- 选择「使用站点配置」并保存可清除会话中的个人 Key。投递操作在原招聘网站完成。
 
-Add sourced records in `lib/real-jobs.ts`. Set unknown fields to null. Record a reliable `sourceUrl`, `sourceCheckedAt`, classification evidence and application destination. Use `lastVerifiedAt` only when confirming the visible application entry and its unexpired published window. Record uncertainty in `verificationNote`. Application buttons require HTTPS and are suppressed for closed and demo records. Rebuild after data changes so new detail routes are exported.
+<details>
+<summary>托管与同步配置</summary>
 
-Detail pages show status-specific explanations, original source links, deadlines and alternate official portals when available. Do not switch status labels without checking original content. This is a manually curated snapshot; live updates and employer-confirmed headcount are not implemented.
+通过 `GET /api/jobs` 可以读取岗位快照和同步状态。定时刷新由 `POST /api/refresh` 触发。完整快照在最近 18 小时内成功同步时会返回 `already_current`，所有来源均失败时返回 503 并保留上次快照。
 
-## Future scope
+托管的刷新请求使用 Sites 服务凭证及 HMAC 签名。以 `sha256("AgentHire refresh v1:" + token)` 的小写十六进制字符串为 HMAC 密钥，用当前毫秒时间戳 `t` 对 `agenthire-refresh:${t}` 做 HMAC-SHA256。请求传入 `OAI-Sites-Authorization: Bearer <token>`、`X-AgentHire-Time` 和 `X-AgentHire-Signature`，签名使用小写十六进制。凭证只发往该项目的站点地址。
 
-Automatic discovery, scheduled updates, authentication, cloud favorites, notifications, databases and AI resume analysis are not implemented. No external credentials or paid model calls are used. Data access can later move behind `getJobs` / `getJob`; a server-backed migration should preserve classification evidence and the education rules.
+托管环境可通过 `AI_SEARCH_DAILY_LIMIT`（1–500）设置站点配置的日调用上限。未设置时，站内搜索使用规则匹配，联网搜索可使用已配置的 DeepSeek 服务。个人 Key 消耗其所属服务商账户的额度。
 
-## Privacy
-
-Favorites use `localStorage` in the current browser only. Clearing browser data removes them. No account, synchronization, or analytics is included.
-
-## 自动同步
-
-- 读取 `GET /api/jobs` 检查 `refreshedAt`、`partial` 和 `jobs`。数据写入 Sites 的 D1 绑定，不需要重新发布。
-- 刷新程序读取百度公开招聘列表、职先机的 Agent 招聘索引、Ivyea Jobs 的创业公司招聘列表及团队公开招聘原页。中小与创业团队使用公开人数区间或有依据的创业公司标签。官网列表中的岗位标为已核验，索引岗位仅提供官网来源链接，开放状态待核实。部分来源失败时保留已有记录并标注同步状态。
-- 自动任务使用链接项目当前的 Sites 服务访问凭证。以 UTF-8 计算 `sha256("AgentHire refresh v1:" + token)` 的小写十六进制文本作为 HMAC 密钥。使用当前毫秒时间戳 `t`，对 `agenthire-refresh:${t}` 计算 HMAC-SHA256 小写十六进制签名。向该站点的 `POST /api/refresh` 发送 `OAI-Sites-Authorization: Bearer <token>`、`X-AgentHire-Time: <t>` 和 `X-AgentHire-Signature: <signature>`，无请求体。凭证与签名只发送到该项目的实时站点，避免记录到日志。
-- 刷新后重新读取岗位接口，核对时间和条数。最近成功同步不足 18 小时会返回 `already_current`，全量来源失败返回 503 并保留上次快照。
-### 多行业岗位搜索
-
-首页和岗位页提供「AI 找岗位」，支持用一句话查询 AI Agent、财会、运营和制造岗位。Worker 通过 `POST /api/jobs/search` 返回站内岗位的 ID 和匹配理由。「联网找岗位」通过 `POST /api/jobs/web-search` 补充外部招聘原页，外部结果标注在招状态待确认。
-
-「联网刷新设置」可使用站点的 `DEEPSEEK_API_KEY`，也可选择 DeepSeek、博查、Perplexity、Tavily、Brave Search 或 Exa 并填写自己的搜索 API Key。个人 Key 仅在当前浏览器标签页的会话中保存，搜索时由 Worker 转交给所选服务商，使用该 Key 所属账户的额度。选择「使用站点配置」并保存可清除个人 Key。搜索条件和刷新结果保存在当前浏览器。「最多保留的外部岗位数」可填写正整数，留空时保留全部去重结果。
-
-托管环境可用 `AI_SEARCH_DAILY_LIMIT`（1–500）为站内模型解析和联网搜索设置共用的每日调用上限。省略此设置时，站内搜索使用规则匹配，联网搜索由 DeepSeek API 处理。DeepSeek 返回余额不足时，页面会明确显示账户余额提示。
-
-本地使用站点的 DeepSeek 配置时，在项目根目录的 `.env` 中填写 `DEEPSEEK_API_KEY`，然后执行 `npm run dev`。打开 `http://127.0.0.1:8787/jobs/settings/` 即可使用联网刷新，也可以在该页面选择自己的搜索 API Key。
-
-运行 `npm test` 和 `node --test tests/job-search.test.mjs` 验证搜索与 Worker 请求。执行 `npm run build` 后可运行 `npm run typecheck` 检查类型。
+</details>
