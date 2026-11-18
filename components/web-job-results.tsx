@@ -119,7 +119,6 @@ export function WebJobSettings(){
     const terms=[preferences.city.trim(),preferences.keywords.trim()].filter(Boolean).join(" ");
     const refresh=(event.nativeEvent as SubmitEvent).submitter?.getAttribute("value")==="refresh";
     if(!Number.isInteger(limit)||limit<1||limit>webJobLimit){setNotice({type:"warning",message:webSearchErrors.invalid_limit});return;}
-    if(refresh&&!terms){setNotice({type:"warning",message:"请至少填写城市或岗位关键词。"});return;}
     const key=apiKey.trim();
     if(provider!=="site"&&!/^[!-~]{1,512}$/.test(key)){
       setNotice({type:"warning",message:webSearchErrors.invalid_api_key});
@@ -141,7 +140,7 @@ export function WebJobSettings(){
     setBusy(true);
     setNotice(undefined);
     try{
-      const {found}=await refreshWebJobs(terms,controller.signal,limit);
+      const {found}=await refreshWebJobs(terms,limit,controller.signal);
       if(controller.signal.aborted)return;
       if(!found){setNotice({type:"warning",message:"本次没有找到新的招聘链接。试试其他城市或关键词。"});return;}
       router.push("/jobs/");
@@ -161,7 +160,7 @@ export function WebJobSettings(){
     <form className="hire-refresh-settings" onSubmit={submit} aria-busy={busy} aria-labelledby="refresh-filters">
       <div className="hire-web-heading">
         <span className="hire-company-mark"><Settings size={20} aria-hidden="true"/></span>
-        <div><h2 id="refresh-filters">搜索条件</h2><p>设置和刷新结果保存在当前浏览器。</p></div>
+        <div><h2 id="refresh-filters">搜索条件</h2><p>城市和关键词留空时，沿用最近的 AI 联网搜索，首次使用会搜索校招和实习。</p></div>
       </div>
       <fieldset className="hire-refresh-fields" disabled={busy} aria-labelledby="refresh-filters">
         <label className="hire-filter-select"><span>城市</span>
@@ -172,7 +171,7 @@ export function WebJobSettings(){
           <input value={preferences.keywords} maxLength={180} placeholder="例如：财务实习、工艺工程师校招"
             onChange={event=>setPreferences({...preferences,keywords:event.target.value})}/>
         </label>
-        <label className="hire-filter-select"><span>最多显示的岗位数</span>
+        <label className="hire-filter-select"><span>最多保留的外部岗位数</span>
           <input type="number" min={1} max={webJobLimit} step={1} required value={preferences.limit}
             onChange={event=>setPreferences({...preferences,limit:event.target.value})}/>
         </label>

@@ -87,10 +87,12 @@ export function rememberWebSearch(query:string,results:WebSearchResults){
   try{sessionStorage.setItem(lastWebSearchKey,JSON.stringify({query,...results}));}catch{}
 }
 
-export function findRememberedWebSearch(query:string){
+export function findRememberedWebSearch(query?:string){
   try{
     const saved=JSON.parse(sessionStorage.getItem(lastWebSearchKey)??"null");
-    if(saved?.query===query&&Array.isArray(saved.jobs))return {
+    if(typeof saved?.query==="string"&&saved.query.trim()&&saved.query.length<=240
+      &&(query===undefined||saved.query===query)&&Array.isArray(saved.jobs))return {
+      query:saved.query as string,
       jobs:mergeWebJobs([],saved.jobs,webJobLimit),
       visibleCount:Number.isInteger(saved.visibleCount)&&saved.visibleCount>=webJobPageSize
         ?Math.min(saved.visibleCount,webJobLimit):webJobPageSize,

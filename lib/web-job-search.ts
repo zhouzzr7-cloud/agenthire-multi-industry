@@ -1,4 +1,4 @@
-import {mergeWebJobs,saveWebJobs} from "./web-job-feed";
+import {findRememberedWebSearch,mergeWebJobs,saveWebJobs,webJobFollowUpTerms} from "./web-job-feed";
 import {isSearchProvider,searchProviderLabels} from "./web-search-providers.mjs";
 
 export type SearchProvider=keyof typeof searchProviderLabels;
@@ -43,18 +43,32 @@ export async function fetchWebJobs(query:string,signal:AbortSignal,limit:number)
   return mergeWebJobs(payload.matches,[],limit);
 }
 
-export async function refreshWebJobs(query:string,signal:AbortSignal,limit:number){
-  let jobs=await fetchWebJobs(query||"校园招聘",signal,limit);
+function comparableQuery(query:string){
+  return query.normalize("NFKC").toLowerCase().trim()
+    .replace(/\s+/gu," ").replace(/(?<=\p{Script=Han}) (?=\p{Script=Han})/gu,"");
+}
+
+export async function refreshWebJobs(preferredQuery:string,limit:number,signal?:AbortSignal){
+  const saved=findRememberedWebSearch();
+  const query=preferredQuery||saved?.query||"";
+  const queries=query?[query,...webJobFollowUpTerms.map(prefix=>`${prefix} ${query}`.slice(0,240))]
+    :["校园招聘","实习招聘","校招 招聘公告","高校就业网 实习招聘","应届生招聘","企业招聘 实习"];
+  let jobs=saved&&comparableQuery(saved.query)===comparableQuery(query)?saved.jobs.slice(0,limit):[];
   let partial=false;
-  if(jobs.length<limit){
-    const followUp=query?`职位详情 ${query}`.slice(0,240):"实习招聘";
+  for(const [index,terms] of queries.entries()){
+    if(index>0&&jobs.length>=limit)break;
+    signal?.throwIfAborted();
     try{
-      jobs=mergeWebJobs(jobs,await fetchWebJobs(followUp,signal,limit),limit);
+      const timeout=AbortSignal.timeout(12_000);
+      const batch=await fetchWebJobs(terms,signal?AbortSignal.any([signal,timeout]):timeout,limit);
+      jobs=index===0?mergeWebJobs(batch,jobs,limit):mergeWebJobs(jobs,batch,limit);
     }catch(error){
+      signal?.throwIfAborted();
       if(!jobs.length)throw error;
       partial=true;
+      break;
     }
   }
-  signal.throwIfAborted();
+  signal?.throwIfAborted();
   return {found:jobs.length,added:jobs.length?saveWebJobs(jobs,limit):0,partial};
 }

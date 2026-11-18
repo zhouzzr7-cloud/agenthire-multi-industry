@@ -86,8 +86,8 @@ export function RefreshJobsButton({onRefresh,webSearchEnabled,fallbackQuery}:{on
         setStage("web");
         const {city,keywords,limit}=readWebRefreshPreferences();
         const query=[city,keywords].map(value=>value.trim()).filter(Boolean).join(" ")||fallbackQuery;
-        const {added,found,partial}=await refreshWebJobs(query,AbortSignal.timeout(25_000),limit);
-        const summary=added?`联网新增 ${added} 条`:found?`联网找到 ${found} 条，均已收录`:"联网未找到匹配岗位";
+        const {added,found,partial}=await refreshWebJobs(query,limit);
+        const summary=added?`联网找到 ${found} 条，新增 ${added} 条`:found?`联网找到 ${found} 条，均已收录`:"联网未找到匹配岗位";
         setWebMessage(summary+(partial?"（补搜未完成）。":"。"));
       }else{
         setWebMessage("配置联网服务后可补充外部岗位。");
