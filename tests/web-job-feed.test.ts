@@ -70,30 +70,34 @@ test("restored web results retain the next search round even after an older sess
 });
 
 test("refresh combines external search batches and counts newly saved recruitment links",async t=>{
-  const original=Object.getOwnPropertyDescriptor(globalThis,"localStorage");
-  t.after(()=>{
-    if(original)Object.defineProperty(globalThis,"localStorage",original);
-    else Reflect.deleteProperty(globalThis,"localStorage");
-  });
   const storage=new Map<string,string>();
-  Object.defineProperty(globalThis,"localStorage",{configurable:true,value:{
-    getItem:(key:string)=>storage.get(key)??null,
-    setItem:(key:string,value:string)=>storage.set(key,value),
-  }});
+  for(const [name,values] of [["localStorage",storage],["sessionStorage",new Map<string,string>()]] as const){
+    const original=Object.getOwnPropertyDescriptor(globalThis,name);
+    t.after(()=>{
+      if(original)Object.defineProperty(globalThis,name,original);
+      else Reflect.deleteProperty(globalThis,name);
+    });
+    Object.defineProperty(globalThis,name,{configurable:true,value:{
+      getItem:(key:string)=>values.get(key)??null,
+      setItem:(key:string,value:string)=>values.set(key,value),
+    }});
+  }
   const other={...base,sourceUrl:base.sourceUrl+"2"};
   const third={...base,sourceUrl:base.sourceUrl+"3"};
   const queries:string[]=[];
   const request=t.mock.method(globalThis,"fetch",async(_url:string,options:{body:string})=>{
     const {query}=JSON.parse(options.body);
     queries.push(query);
-    return Response.json({matches:query.startsWith("招聘公告 ")?[other,third]:[base]});
+    return Response.json({matches:/^(?:职位详情 )?北京实习$/u.test(query)?[base]:[other,third]});
   });
   const report={query:"北京实习",found:3,total:3,limit:3,removed:0,partial:false};
   assert.deepEqual(await refreshWebJobs("北京实习",3),{...report,added:3});
   assert.deepEqual(await refreshWebJobs("北京实习",3),{...report,added:0});
-  const batches=["北京实习","职位详情 北京实习","招聘公告 北京实习"];
-  assert.deepEqual(queries,[...batches,...batches]);
-  assert.equal(request.mock.callCount(),6);
+  assert.deepEqual(queries,[
+    "北京实习","职位详情 北京实习","招聘公告 北京实习",
+    "北京实习","职位详情 北京实习","高校就业网 北京实习","企业招聘 北京实习","岗位职责 北京实习","招聘官网 北京实习",
+  ]);
+  assert.equal(request.mock.callCount(),9);
   assert.deepEqual(readWebJobs().map(job=>job.sourceUrl),[base.sourceUrl,other.sourceUrl,third.sourceUrl]);
   const latest={...base,sourceUrl:base.sourceUrl+"4"};
   assert.deepEqual(saveWebJobs([latest],3),{added:1,total:3,removed:1});
@@ -116,6 +120,22 @@ test("refresh combines external search batches and counts newly saved recruitmen
   assert.equal(readWebRefreshPreferences().limit,null);
   assert.deepEqual(saveWebJobs([latest],null),{added:1,total:101,removed:0});
   assert.equal(readWebJobs().length,101);
+
+  const backend={...base,sourceUrl:`${base.sourceUrl}_backend`};
+  const focusedQueries:string[]=[];
+  request.mock.mockImplementation(async(_url:string,options:{body:string})=>{
+    const {query}=JSON.parse(options.body);
+    focusedQueries.push(query);
+    if(query==="北京计算机")return Response.json({matches:bulkJobs.slice(0,50)});
+    if(query==="职位详情 北京计算机")return Response.json({matches:bulkJobs.slice(50)});
+    return Response.json({matches:query==="北京后端开发"?[backend]:[]});
+  });
+  storage.set(preferencesKey,JSON.stringify({limit:100}));
+  assert.deepEqual(await refreshWebJobs("北京计算机",100),{
+    query:"北京计算机",found:101,added:1,total:100,removed:2,limit:100,partial:false,
+  });
+  assert.deepEqual(focusedQueries,["北京计算机","职位详情 北京计算机","北京后端开发"]);
+  assert.equal(readWebJobs()[0]?.sourceUrl,backend.sourceUrl);
 });
 
 test("external announcement snippets show only complete role, degree, and headcount rows",()=>{

@@ -45,7 +45,7 @@ export function readWebRefreshPreferences(){
   }catch{return {city:"",keywords:"",limit:null};}
 }
 
-function readSavedWebJobs(){
+export function readSavedWebJobs(){
   try{
     const rows=JSON.parse(localStorage.getItem(webFeedKey)??"null");
     return Array.isArray(rows)?mergeWebJobs([],rows):[];

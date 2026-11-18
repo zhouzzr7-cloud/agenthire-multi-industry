@@ -1,4 +1,4 @@
-import {findRememberedWebSearch,mergeWebJobs,readWebJobs,saveWebJobs,webJobFollowUpTerms} from "./web-job-feed";
+import {findRememberedWebSearch,mergeWebJobs,readSavedWebJobs,saveWebJobs,webJobFollowUpTerms,webJobKey,type WebJob} from "./web-job-feed";
 import {isSearchProvider,searchProviderLabels} from "./web-search-providers.mjs";
 
 export type SearchProvider=keyof typeof searchProviderLabels;
@@ -50,21 +50,47 @@ function comparableQuery(query:string){
     .replace(/\s+/gu," ").replace(/(?<=\p{Script=Han}) (?=\p{Script=Han})/gu,"");
 }
 
+const sourceSearchHints=[...webJobFollowUpTerms.slice(1),"招聘官网","实习僧","牛客招聘","猎聘","大学生就业服务平台","就业信息网"];
+const computingSearchHints=["后端开发","前端开发","软件测试","数据开发","算法工程师","运维工程师","网络安全","嵌入式软件","全栈开发","数据库工程师","云计算","软件研发"];
+const broadComputingKeyword=/计算机(?:类|方向)?(?=$|[\s，,、]|实习|校招|社招|全职|本科|硕士)/u;
+
+function refreshSearchPlan(query:string){
+  const computing=broadComputingKeyword.test(query);
+  const hints=computing?computingSearchHints:sourceSearchHints;
+  const key=`agenthire.web-refresh.next-scope:${comparableQuery(query)}`;
+  let offset=0;
+  try{
+    const stored=Number(sessionStorage.getItem(key));
+    if(Number.isInteger(stored)&&stored>=0&&stored<hints.length)offset=stored;
+  }catch{}
+  const base=query||"校园招聘";
+  const terms=[base,query?`职位详情 ${query}`.slice(0,240):"实习招聘"];
+  for(let index=0;index<4;index++){
+    const hint=hints[(offset+index)%hints.length];
+    terms.push((computing?query.replace(broadComputingKeyword,hint):`${hint} ${base}`).slice(0,240));
+  }
+  return {terms,key,offset,scopeCount:hints.length};
+}
+
 export async function refreshWebJobs(preferredQuery:string,limit:number|null,signal?:AbortSignal){
   const saved=findRememberedWebSearch();
   const query=preferredQuery||saved?.query||"";
-  const queries=query?[query,...webJobFollowUpTerms.map(prefix=>`${prefix} ${query}`.slice(0,240))]
-    :["校园招聘","实习招聘","校招 招聘公告","高校就业网 实习招聘","应届生招聘","企业招聘 实习"];
-  let jobs=saved&&comparableQuery(saved.query)===comparableQuery(query)?saved.jobs.slice(0,limit??undefined):[];
+  const {terms,key,offset,scopeCount}=refreshSearchPlan(query);
+  const previous=readSavedWebJobs();
+  const known=new Set(previous.map(job=>webJobKey(job.sourceUrl)));
+  const isNew=(job:WebJob)=>!known.has(webJobKey(job.sourceUrl));
+  let jobs=saved&&comparableQuery(saved.query)===comparableQuery(query)?saved.jobs:[];
   const batchSize=Math.min(limit??webJobBatchSize,webJobBatchSize);
   let partial=false;
-  for(const [index,terms] of queries.entries()){
-    if(index>0&&limit!==null&&jobs.length>=limit)break;
+  let completedScopes=0;
+  for(const [index,searchTerm] of terms.entries()){
+    if(index>0&&limit!==null&&jobs.length>=limit&&jobs.some(isNew))break;
     signal?.throwIfAborted();
     try{
       const timeout=AbortSignal.timeout(12_000);
-      const batch=await fetchWebJobs(terms,signal?AbortSignal.any([signal,timeout]):timeout,batchSize);
-      jobs=index===0?mergeWebJobs(batch,jobs,limit):mergeWebJobs(jobs,batch,limit);
+      const batch=await fetchWebJobs(searchTerm,signal?AbortSignal.any([signal,timeout]):timeout,batchSize);
+      jobs=index===0?mergeWebJobs(batch,jobs):mergeWebJobs(jobs,batch);
+      if(index>=2)completedScopes++;
     }catch(error){
       signal?.throwIfAborted();
       if(!jobs.length)throw error;
@@ -73,12 +99,16 @@ export async function refreshWebJobs(preferredQuery:string,limit:number|null,sig
     }
   }
   signal?.throwIfAborted();
-  const savedJobs=jobs.length?saveWebJobs(jobs,limit):{added:0,total:readWebJobs().length,removed:0};
+  const rows=limit!==null&&jobs.length>limit?mergeWebJobs(jobs.filter(isNew),jobs,limit):jobs;
+  const savedJobs=rows.length?saveWebJobs(rows,limit):{added:0,total:Math.min(previous.length,limit??previous.length),removed:0};
+  if(completedScopes){
+    try{sessionStorage.setItem(key,String((offset+completedScopes)%scopeCount));}catch{}
+  }
   return {query:query||"校招和实习",found:jobs.length,limit,partial,...savedJobs};
 }
 
 export function formatWebRefreshNotice({query,found,added,total,limit,removed,partial}:Awaited<ReturnType<typeof refreshWebJobs>>){
-  const counts=found?`找到 ${found} 条，新增 ${added} 条`:"没有找到匹配岗位";
+  const counts=found?`找到 ${found} 条${added?`，新增 ${added} 条`:"，均已收录"}`:"没有找到匹配岗位";
   const changes=removed?`，移出 ${removed} 条旧结果`:"";
   const capacity=limit===null?`${total}`:`${total}/${limit}`;
   return `联网搜索「${query}」${counts}。列表保留 ${capacity} 条${changes}。${partial?"部分搜索未完成。":""}`;
