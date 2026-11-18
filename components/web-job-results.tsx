@@ -4,13 +4,13 @@ import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {ArrowLeft,ArrowUpRight,Check,CircleAlert,Globe,RefreshCw,Settings} from "lucide-react";
-import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebJobs,rememberWebSearch,webFeedKey,webJobHref,webJobLimit,webJobPageSize,type WebJob,type WebSearchResults} from "@/lib/web-job-feed";
+import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebJobs,rememberWebSearch,webFeedKey,webJobFollowUpTerms,webJobHref,webJobLimit,webJobPageSize,type WebJob,type WebSearchResults} from "@/lib/web-job-feed";
 import {withAiSearchQuery} from "@/lib/ai-search-navigation";
 import {isSearchProvider,searchProviderLabels} from "@/lib/web-search-providers.mjs";
 
 type State =
   | {status:"idle"|"loading"}
-  | ({status:"ready";loadingMore?:boolean;moreError?:string}&WebSearchResults)
+  | ({status:"ready";loadingMore?:boolean;moreError?:string;moreMessage?:string}&WebSearchResults)
   | {status:"error";message:string};
 
 type SearchProvider = keyof typeof searchProviderLabels;
@@ -65,25 +65,26 @@ export function WebJobResults({query}:{query:string}){
     if(saved)setState({status:"ready",...saved});
     return ()=>active.current?.abort();
   },[query]);
-  function showResults(results:WebSearchResults){
+  function showResults(results:WebSearchResults,moreMessage?:string){
     rememberWebSearch(query,results);
-    setState({status:"ready",...results});
+    setState({status:"ready",...results,moreMessage});
   }
 
-  async function search(previous?:WebSearchResults){
+  async function search(terms=query,previous?:WebSearchResults){
     if(active.current)return;
     const controller=new AbortController();
     active.current=controller;
     setState(previous?{status:"ready",...previous,loadingMore:true}:{status:"loading"});
     try{
-      const terms=previous?`职位详情 ${query}`.slice(0,240):query;
       const jobs=await fetchWebJobs(terms,controller.signal,webJobLimit);
       if(!controller.signal.aborted){
+        const matches=previous?mergeWebJobs(previous.jobs,jobs,webJobLimit):jobs;
+        const moreMessage=previous&&matches.length===previous.jobs.length?"这轮没有找到新岗位，可以继续搜索。":undefined;
         showResults({
-          jobs:previous?mergeWebJobs(previous.jobs,jobs,webJobLimit):jobs,
+          jobs:matches,
           visibleCount:previous?Math.min(previous.visibleCount+webJobPageSize,webJobLimit):webJobPageSize,
-          searchedMore:Boolean(previous),
-        });
+          completedFollowUps:previous?previous.completedFollowUps+1:0,
+        },moreMessage);
       }
     }catch(error){
       if(!controller.signal.aborted){
@@ -97,6 +98,7 @@ export function WebJobResults({query}:{query:string}){
 
   const busy=state.status==="loading"||(state.status==="ready"&&state.loadingMore);
   const remaining=state.status==="ready"?Math.max(0,state.jobs.length-state.visibleCount):0;
+  const followUp=state.status==="ready"&&state.jobs.length<webJobLimit?webJobFollowUpTerms[state.completedFollowUps]:undefined;
 
   return <section className="hire-web-results" aria-labelledby="web-results-heading" aria-busy={busy}>
     <div className="hire-web-toolbar">
@@ -114,19 +116,22 @@ export function WebJobResults({query}:{query:string}){
     <div role="status">
       {state.status==="error"&&<p className="hire-web-status hire-web-warning"><CircleAlert size={16} aria-hidden="true"/>{state.message}</p>}
       {state.status==="ready"&&<p className="hire-web-status">{state.jobs.length
-        ?`${state.searchedMore&&!remaining?"已显示全部":"找到"} ${state.jobs.length} 条外部岗位${remaining?`，已显示 ${state.visibleCount} 条`:""}`
+        ?`找到 ${state.jobs.length} 条外部岗位${remaining?`，已显示 ${state.visibleCount} 条`:""}`
         :"没有找到新的招聘原页。可以换个岗位关键词或放宽城市条件。"}</p>}
     </div>
     {state.status==="ready"&&state.jobs.length>0&&
       <div className="hire-role-list">{state.jobs.slice(0,state.visibleCount).map(job=><WebJobCard key={job.sourceUrl} job={job} searchQuery={query}/>)}</div>}
-    {state.status==="ready"&&(remaining>0||(!state.searchedMore&&state.jobs.length<webJobLimit))&&
+    {state.status==="ready"&&
       <div className="hire-web-more">
-        <button type="button" className="button secondary" disabled={busy} onClick={()=>{
-          const {jobs,visibleCount,searchedMore}=state;
-          if(remaining)showResults({jobs,visibleCount:Math.min(visibleCount+webJobPageSize,webJobLimit),searchedMore});
-          else void search({jobs,visibleCount:jobs.length,searchedMore});
-        }}>{state.loadingMore?"正在搜索更多岗位…":"查看更多岗位"}</button>
-        {state.moreError&&<p role="status" className="hire-web-status hire-web-warning"><CircleAlert size={16} aria-hidden="true"/>{state.moreError}</p>}
+        {remaining>0||followUp?<>
+          <button type="button" className="button secondary" disabled={busy} onClick={()=>{
+            const {jobs,visibleCount,completedFollowUps}=state;
+            if(remaining)showResults({jobs,visibleCount:Math.min(visibleCount+webJobPageSize,webJobLimit),completedFollowUps});
+            else if(followUp)void search(`${followUp} ${query}`.slice(0,240),{jobs,visibleCount:jobs.length,completedFollowUps});
+          }}>{state.loadingMore?"正在搜索更多岗位…":"查看更多岗位"}</button>
+          {state.moreMessage&&<p role="status" className="hire-web-status">{state.moreMessage}</p>}
+          {state.moreError&&<p role="status" className="hire-web-status hire-web-warning"><CircleAlert size={16} aria-hidden="true"/>{state.moreError}</p>}
+        </>:<p role="status" className="hire-web-status">{state.jobs.length>=webJobLimit?`已达到 ${webJobLimit} 条展示上限。`:"本次联网搜索已结束，可以换个关键词继续找。"}</p>}
       </div>}
   </section>;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {findStoredWebJob,matchesWebJob,mergeWebJobs,rememberWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
+import {findRememberedWebSearch,findStoredWebJob,matchesWebJob,mergeWebJobs,rememberWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
 import {aiSearchHref,withAiSearchQuery} from "../lib/ai-search-navigation";
 import {webJobSummaryRows,webJobSummarySections} from "../lib/web-job-summary";
 
@@ -42,6 +42,20 @@ test("links to job details preserve the original AI query alongside the existing
   assert.equal(back.pathname,"/jobs/");
   assert.equal(back.searchParams.get("ai"),query);
   assert.equal(back.hash,"#web-results-heading");
+});
+
+test("restored web results retain the next search round even after an older session searched once",t=>{
+  const original=Object.getOwnPropertyDescriptor(globalThis,"sessionStorage");
+  t.after(()=>{
+    if(original)Object.defineProperty(globalThis,"sessionStorage",original);
+    else Reflect.deleteProperty(globalThis,"sessionStorage");
+  });
+  const saved={query:"北京",jobs:[base],visibleCount:24,searchedMore:true};
+  let value=JSON.stringify(saved);
+  Object.defineProperty(globalThis,"sessionStorage",{configurable:true,value:{getItem:()=>value}});
+  assert.deepEqual(findRememberedWebSearch("北京"),{jobs:[base],visibleCount:24,completedFollowUps:1});
+  value=JSON.stringify({...saved,completedFollowUps:3});
+  assert.deepEqual(findRememberedWebSearch("北京"),{jobs:[base],visibleCount:24,completedFollowUps:3});
 });
 
 test("external announcement snippets show only complete role, degree, and headcount rows",()=>{

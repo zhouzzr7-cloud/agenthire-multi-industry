@@ -1,7 +1,8 @@
 export type WebJob = {title:string;snippet:string;publishedAt:string|null;source:string;sourceUrl:string;hostname:string;fetchedAt?:string};
-export type WebSearchResults = {jobs:WebJob[];visibleCount:number;searchedMore:boolean};
+export type WebSearchResults = {jobs:WebJob[];visibleCount:number;completedFollowUps:number};
 export const webJobLimit=50;
 export const webJobPageSize=12;
+export const webJobFollowUpTerms=["职位详情","招聘公告","高校就业网","企业招聘","岗位职责"] as const;
 export const preferencesKey="agenthire.web-refresh.preferences";
 export const webFeedKey="agenthire.web-refresh.results";
 const recentWebJobsKey="agenthire.web-search.recent-results";
@@ -75,7 +76,9 @@ export function findRememberedWebSearch(query:string){
       jobs:mergeWebJobs([],saved.jobs,webJobLimit),
       visibleCount:Number.isInteger(saved.visibleCount)&&saved.visibleCount>=webJobPageSize
         ?Math.min(saved.visibleCount,webJobLimit):webJobPageSize,
-      searchedMore:saved.searchedMore===true,
+      completedFollowUps:Number.isInteger(saved.completedFollowUps)&&saved.completedFollowUps>=0
+        ?Math.min(saved.completedFollowUps,webJobFollowUpTerms.length)
+        :Number(saved.searchedMore===true),
     };
   }catch{}
   return null;
