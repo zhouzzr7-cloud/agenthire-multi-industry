@@ -1,3 +1,6 @@
+import {commonJobCities} from "./job-search.mjs";
+import {webJobSummaryRows} from "./web-job-summary";
+
 export type WebJob = {title:string;snippet:string;publishedAt:string|null;source:string;sourceUrl:string;hostname:string;fetchedAt?:string};
 export type WebSearchResults = {jobs:WebJob[];visibleCount:number;completedFollowUps:number};
 export const webJobLimit=50;
@@ -43,20 +46,25 @@ export function readWebRefreshPreferences(){
   }catch{return {city:"",keywords:"",limit:webJobLimit};}
 }
 
-export function readWebJobs(){
+function readSavedWebJobs(){
   try{
     const rows=JSON.parse(localStorage.getItem(webFeedKey)??"null");
-    return Array.isArray(rows)?mergeWebJobs([],rows,readWebRefreshPreferences().limit):[];
+    return Array.isArray(rows)?mergeWebJobs([],rows,webJobLimit):[];
   }catch{return [];}
 }
 
+export function readWebJobs(){
+  return readSavedWebJobs().slice(0,readWebRefreshPreferences().limit);
+}
+
 export function saveWebJobs(jobs:WebJob[],limit:number){
-  const previous=readWebJobs();
+  const previous=readSavedWebJobs();
   const known=new Set(previous.map(job=>webJobKey(job.sourceUrl)));
   const fetchedAt=new Date().toISOString();
   const rows=mergeWebJobs(jobs.map(job=>({...job,fetchedAt})),previous,limit);
   localStorage.setItem(webFeedKey,JSON.stringify(rows));
-  return rows.filter(job=>!known.has(webJobKey(job.sourceUrl))).length;
+  const added=rows.filter(job=>!known.has(webJobKey(job.sourceUrl))).length;
+  return {added,total:rows.length,removed:previous.length+added-rows.length};
 }
 
 export function webJobHref(job:WebJob){
@@ -104,14 +112,21 @@ export function findRememberedWebSearch(query?:string){
   return null;
 }
 
-export function matchesWebJob(job:WebJob,params:URLSearchParams){
+const computingRole=/计算机|软件(?:开发|工程|测试)|前端|后端|全栈|数据开发|数据库|算法|服务器|运维|网络安全|人工智能|智能体|\b(?:python|java|agent|sre)\b/u;
+
+export function matchesWebJob(job:WebJob,params:URLSearchParams,cities:readonly string[]=commonJobCities){
   const status=params.get("status");
   if(status&&status!=="unverified")return false;
-  if(["category","education","specialty","type","year","size","team","bachelor","fresh","experience","remote"]
+  if(["education","specialty","type","year","size","team","bachelor","fresh","experience","remote"]
     .some(key=>params.get(key)))return false;
-  const text=(job.title+" "+job.snippet+" "+job.source).toLowerCase();
+  const category=params.get("category");
+  if(category&&category!=="technology")return false;
+  if(category&&!computingRole.test(job.title.toLowerCase())
+    &&!webJobSummaryRows(job.snippet).some(row=>computingRole.test(row.title.toLowerCase())))return false;
+  const listing=(job.title+" "+job.snippet).normalize("NFKC").toLowerCase();
+  const text=listing+" "+job.source.toLowerCase();
   const city=params.get("city");
-  if(city&&(city==="其他"||!text.includes(city.toLowerCase())))return false;
+  if(city&&(city==="其他"||!listing.includes(city.toLowerCase())))return false;
   const track=params.get("track");
   if(track==="internship"&&!text.includes("实习"))return false;
   if(track==="campus"&&!/校招|校园招聘|应届/.test(text))return false;
@@ -121,5 +136,9 @@ export function matchesWebJob(job:WebJob,params:URLSearchParams){
     const age=Date.now()-Date.parse(job.publishedAt??"");
     if(!Number.isFinite(age)||age<0||age>days*86400000)return false;
   }
-  return (params.get("q")??"").trim().toLowerCase().split(/\s+/).every(word=>text.includes(word));
+  const query=(params.get("q")??"").normalize("NFKC").trim().toLowerCase();
+  const leadingCity=cities.find(value=>query.startsWith(value));
+  if(leadingCity&&!listing.includes(leadingCity))return false;
+  const keywords=leadingCity?query.slice(leadingCity.length).replace(/^市/u,"").trim():query;
+  return keywords.split(/\s+/).every(word=>word==="计算机"?computingRole.test(listing):text.includes(word));
 }

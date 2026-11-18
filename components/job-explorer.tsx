@@ -5,9 +5,11 @@ import {useEffect, useState} from "react";
 import Link from "next/link";
 import {ArrowRight, Bookmark, Search, Settings, SlidersHorizontal, X} from "lucide-react";
 import {bachelorEligible, categories, educationLabels, isOpenJob, isTeamOpportunity, jobCities, priorityCities, queryJobs, statusLabels, technologyCategories} from "@/lib/jobs";
+import {commonJobCities} from "@/lib/job-search.mjs";
 import {AIJobSearch,AIJobSearchForm} from "./ai-job-search";
 import {WebJobCard} from "./web-job-results";
 import {matchesWebJob,readWebJobs,webJobKey,type WebJob} from "@/lib/web-job-feed";
+import {webRefreshNoticeKey} from "@/lib/web-job-search";
 import {JobCard} from "./job-card";
 import {RefreshJobsButton,RefreshLabel,useLiveJobs} from "./live-jobs";
 import {useFavorites} from "./shell";
@@ -28,6 +30,7 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
   const [advanced,setAdvanced]=useState(false);
   const [limit,setLimit]=useState(pageSize);
   const [webJobs,setWebJobs]=useState<WebJob[]>([]);
+  const [webRefreshNotice,setWebRefreshNotice]=useState("");
   const {ids,ready}=useFavorites();
   const {jobs,feed,state,reload}=useLiveJobs();
   useEffect(()=>{
@@ -45,12 +48,23 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
       window.removeEventListener("storage",load);
     };
   },[favorites,searchParams]);
+  useEffect(()=>{
+    if(favorites)return;
+    try{
+      const message=sessionStorage.getItem(webRefreshNoticeKey);
+      if(message){setWebRefreshNotice(message);sessionStorage.removeItem(webRefreshNoticeKey);}
+    }catch{}
+  },[favorites,searchParams]);
 
   const records=favorites?jobs.filter(job=>ids.includes(job.id)):jobs;
   const matched=queryJobs(params,records);
   const knownUrls=new Set(records.filter(isOpenJob).flatMap(job=>[webJobKey(job.sourceUrl),webJobKey(job.applyUrl)]));
   const external=favorites?[]:webJobs.filter(job=>!knownUrls.has(webJobKey(job.sourceUrl)));
-  const matchedExternal=external.filter(job=>matchesWebJob(job,params));
+  const active=records.filter(isOpenJob);
+  const otherCities=Array.from(new Set(active.flatMap(jobCities))).filter(city=>!priorityCities.includes(city)).sort((a,b)=>a.localeCompare(b,"zh"));
+  const cities=[...priorityCities,...otherCities];
+  const searchCities=[...commonJobCities,...otherCities];
+  const matchedExternal=external.filter(job=>matchesWebJob(job,params,searchCities));
   const results=[
     ...matchedExternal.map(job=>({type:"web" as const,job,salary:-1,published:job.publishedAt,updated:job.fetchedAt})),
     ...matched.map(job=>({type:"site" as const,job,salary:job.salaryMonthly??-1,published:job.publishedAt,updated:job.updatedAt})),
@@ -70,9 +84,7 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
   if(params.get("sort")==="salary")results.sort((a,b)=>b.salary-a.salary||(a.type===b.type?0:a.type==="site"?-1:1));
   if(params.get("sort")==="newest")results.sort((a,b)=>stamp(b.published)-stamp(a.published));
   if(params.get("sort")==="updated")results.sort((a,b)=>stamp(b.updated)-stamp(a.updated));
-  const active=records.filter(isOpenJob);
   const teamCount=active.filter(isTeamOpportunity).length;
-  const otherCities=Array.from(new Set(active.flatMap(jobCities))).filter(city=>!priorityCities.includes(city)).sort((a,b)=>a.localeCompare(b,"zh"));
   const sizes=Array.from(new Set(jobs.map(job=>job.companySize)));
   const years=Array.from(new Set(jobs.flatMap(job=>job.graduationYear?[String(job.graduationYear)]:[]))).sort();
   const specialties=Array.from(new Set(jobs.map(job=>job.specialty)));
@@ -110,15 +122,16 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
       <div className="hire-search hire-board-search"><Search size={21} aria-hidden="true"/><input aria-label="搜索岗位" placeholder="搜索职位、公司、城市或技能" value={get("q")} onChange={event=>change("q",event.target.value)}/>{get("q")&&<button type="button" className="hire-search-clear" aria-label="清空搜索" onClick={()=>change("q","")}><X size={18}/></button>}</div>
       {!favorites&&<AIJobSearchForm/>}
       {!favorites&&<div className="hire-board-tools">
-        {feed.manualRefresh&&<RefreshJobsButton webSearchEnabled={feed.webSearchEnabled} fallbackQuery={refreshQuery} onRefresh={()=>{reload();setWebJobs(readWebJobs());}}/>}
+        {feed.manualRefresh&&<RefreshJobsButton webSearchEnabled={feed.webSearchEnabled} currentQuery={refreshQuery} onStart={()=>setWebRefreshNotice("")} onRefresh={()=>{reload();setWebJobs(readWebJobs());}}/>}
         <Link href="/jobs/settings/" className="hire-apply"><Settings size={15} aria-hidden="true"/> 联网刷新设置</Link>
       </div>}
+      {!favorites&&webRefreshNotice&&<p className="hire-web-status" role="status">{webRefreshNotice}</p>}
     </section>
     <div className="hire-track" aria-label="快速筛选">{tracks.map(([value,label])=><button type="button" aria-pressed={get("track")===value} key={label} onClick={()=>change("track",value)}>{label}</button>)}<button className="hire-team-toggle" type="button" aria-pressed={get("team")==="1"} onClick={()=>change("team",get("team")==="1"?"":"1")}>中小与创业团队 <span>{teamCount}</span></button></div>
     <div className="hire-board-layout">
       <aside className="hire-filters">
         <div className="hire-filter-head"><span><SlidersHorizontal size={16}/> 筛选</span><button onClick={reset}>重置</button></div>
-        {select("工作城市","city",strings([...priorityCities,...otherCities,"其他"]))}
+        {select("工作城市","city",strings([...cities,"其他"]))}
         {select("岗位方向","category",categoryOptions)}
         {select("学历要求","education",[["eligible","本科可投"],...Object.entries(educationLabels)])}
         {select("数据状态","status",Object.entries(statusLabels),"真实来源（未关闭）")}
@@ -133,7 +146,7 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
         </div>}
       </aside>
       <section className="hire-results" aria-label="搜索结果">
-        <div className="hire-results-bar"><div aria-live="polite"><strong>{results.length}</strong> 个{favorites?"收藏":"匹配"}岗位{matchedExternal.length>0&&<small> · {matchedExternal.length} 条联网</small>}</div>{select("排序","sort",[["newest","最新发布"],["updated","最近更新"],["salary","月薪从高到低"]],"综合排序")}</div>
+        <div className="hire-results-bar"><div aria-live="polite"><strong>{results.length}</strong> 个{favorites?"收藏":"匹配"}岗位{external.length>0&&<small> · {matchedExternal.length} 条联网{matchedExternal.length<external.length&&`（已收录 ${external.length} 条）`}</small>}</div>{select("排序","sort",[["newest","最新发布"],["updated","最近更新"],["salary","月薪从高到低"]],"综合排序")}</div>
         {favorites&&!ready?<p className="hire-empty">正在读取收藏…</p>:state==="loading"&&get("team")==="1"&&!results.length?<p className="hire-empty" role="status">正在读取中小与创业团队岗位…</p>:results.length?
           <div className="hire-role-list">{results.slice(0,limit).map(result=>result.type==="web"
             ?<WebJobCard key={result.job.sourceUrl} job={result.job}/>

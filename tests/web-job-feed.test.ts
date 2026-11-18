@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {findRememberedWebSearch,findStoredWebJob,matchesWebJob,mergeWebJobs,readWebJobs,rememberWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
+import {findRememberedWebSearch,findStoredWebJob,matchesWebJob,mergeWebJobs,readWebJobs,rememberWebJobs,saveWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
 import {aiSearchHref,withAiSearchQuery} from "../lib/ai-search-navigation";
 import {refreshWebJobs} from "../lib/web-job-search";
 import {webJobSummaryRows,webJobSummarySections} from "../lib/web-job-summary";
@@ -23,6 +23,16 @@ test("external cards participate in evidenced filters without claiming unknown e
   assert.equal(matchesWebJob(base,new URLSearchParams("city=杭州")),false);
   assert.equal(matchesWebJob(base,new URLSearchParams("education=bachelor")),false);
   assert.equal(matchesWebJob(base,new URLSearchParams("status=verified")),false);
+});
+
+test("compact computer-job searches split the city from the role and ignore publisher locations",()=>{
+  const developer={...base,title:"后端开发工程师",snippet:"工作地点：北京市海淀区"};
+  assert.equal(matchesWebJob(developer,new URLSearchParams("q=北京计算机&category=technology")),true);
+  assert.equal(matchesWebJob(developer,new URLSearchParams("q=北京市 计算机")),true);
+  const otherCity={...developer,snippet:"工作地点：杭州",source:"北京大学就业信息网"};
+  assert.equal(matchesWebJob(otherCity,new URLSearchParams("q=北京计算机")),false);
+  assert.equal(matchesWebJob(otherCity,new URLSearchParams("city=北京")),false);
+  assert.equal(matchesWebJob({...base,snippet:"欢迎计算机等专业应聘"},new URLSearchParams("category=technology")),false);
 });
 
 test("an external card resolves its canonical link to the browser's remembered result",()=>{
@@ -78,12 +88,16 @@ test("refresh combines external search batches and counts newly saved recruitmen
     queries.push(query);
     return Response.json({matches:query.startsWith("招聘公告 ")?[other,third]:[base]});
   });
-  assert.deepEqual(await refreshWebJobs("北京实习",3),{found:3,added:3,partial:false});
-  assert.deepEqual(await refreshWebJobs("北京实习",3),{found:3,added:0,partial:false});
+  const report={query:"北京实习",found:3,total:3,limit:3,removed:0,partial:false};
+  assert.deepEqual(await refreshWebJobs("北京实习",3),{...report,added:3});
+  assert.deepEqual(await refreshWebJobs("北京实习",3),{...report,added:0});
   const batches=["北京实习","职位详情 北京实习","招聘公告 北京实习"];
   assert.deepEqual(queries,[...batches,...batches]);
   assert.equal(request.mock.callCount(),6);
   assert.deepEqual(readWebJobs().map(job=>job.sourceUrl),[base.sourceUrl,other.sourceUrl,third.sourceUrl]);
+  const latest={...base,sourceUrl:base.sourceUrl+"4"};
+  assert.deepEqual(saveWebJobs([latest],3),{added:1,total:3,removed:1});
+  assert.deepEqual(readWebJobs().map(job=>job.sourceUrl),[latest.sourceUrl,base.sourceUrl,other.sourceUrl]);
 });
 
 test("external announcement snippets show only complete role, degree, and headcount rows",()=>{

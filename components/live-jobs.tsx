@@ -5,7 +5,7 @@ import {useEffect, useState} from "react";
 import {Activity, ArrowUpRight, BriefcaseBusiness, GraduationCap, RefreshCw} from "lucide-react";
 import {getCareerJobs, getJobs, isOpenJob, recruitmentTrack, type Job} from "@/lib/jobs";
 import {readWebRefreshPreferences} from "@/lib/web-job-feed";
-import {readSearchAccess,refreshWebJobs} from "@/lib/web-job-search";
+import {formatWebRefreshNotice,readSearchAccess,refreshWebJobs} from "@/lib/web-job-search";
 
 interface Feed {
   jobs: Job[];
@@ -63,12 +63,13 @@ export function RefreshLabel({feed,state}:{feed:Feed; state:string}){
   return <span>{feed.partial?"部分来源待更新 · ":stale?"更新延迟 · ":"最近同步 "}{time}</span>;
 }
 
-export function RefreshJobsButton({onRefresh,webSearchEnabled,fallbackQuery}:{onRefresh:()=>void;webSearchEnabled?:boolean;fallbackQuery:string}){
+export function RefreshJobsButton({onRefresh,onStart,webSearchEnabled,currentQuery}:{onRefresh:()=>void;onStart:()=>void;webSearchEnabled?:boolean;currentQuery:string}){
   const [stage,setStage]=useState<"idle"|"site"|"web">("idle");
   const [siteMessage,setSiteMessage]=useState("");
   const [webMessage,setWebMessage]=useState("");
 
   async function refresh(){
+    onStart();
     setStage("site");
     setSiteMessage("");
     setWebMessage("");
@@ -85,10 +86,8 @@ export function RefreshJobsButton({onRefresh,webSearchEnabled,fallbackQuery}:{on
       if(webSearchEnabled||readSearchAccess()){
         setStage("web");
         const {city,keywords,limit}=readWebRefreshPreferences();
-        const query=[city,keywords].map(value=>value.trim()).filter(Boolean).join(" ")||fallbackQuery;
-        const {added,found,partial}=await refreshWebJobs(query,limit);
-        const summary=added?`联网找到 ${found} 条，新增 ${added} 条`:found?`联网找到 ${found} 条，均已收录`:"联网未找到匹配岗位";
-        setWebMessage(summary+(partial?"（补搜未完成）。":"。"));
+        const query=currentQuery||[city,keywords].map(value=>value.trim()).filter(Boolean).join(" ");
+        setWebMessage(formatWebRefreshNotice(await refreshWebJobs(query,limit)));
       }else{
         setWebMessage("配置联网服务后可补充外部岗位。");
       }

@@ -1,8 +1,9 @@
-import {findRememberedWebSearch,mergeWebJobs,saveWebJobs,webJobFollowUpTerms} from "./web-job-feed";
+import {findRememberedWebSearch,mergeWebJobs,readWebJobs,saveWebJobs,webJobFollowUpTerms} from "./web-job-feed";
 import {isSearchProvider,searchProviderLabels} from "./web-search-providers.mjs";
 
 export type SearchProvider=keyof typeof searchProviderLabels;
 export const searchAccessKey="agenthire.web-search.session";
+export const webRefreshNoticeKey="agenthire.web-refresh.notice";
 
 export function readSearchAccess():{provider:SearchProvider;apiKey:string}|undefined{
   try{
@@ -70,5 +71,12 @@ export async function refreshWebJobs(preferredQuery:string,limit:number,signal?:
     }
   }
   signal?.throwIfAborted();
-  return {found:jobs.length,added:jobs.length?saveWebJobs(jobs,limit):0,partial};
+  const savedJobs=jobs.length?saveWebJobs(jobs,limit):{added:0,total:readWebJobs().length,removed:0};
+  return {query:query||"校招和实习",found:jobs.length,limit,partial,...savedJobs};
+}
+
+export function formatWebRefreshNotice({query,found,added,total,limit,removed,partial}:Awaited<ReturnType<typeof refreshWebJobs>>){
+  const counts=found?`找到 ${found} 条，新增 ${added} 条`:"没有找到匹配岗位";
+  const changes=removed?`，移出 ${removed} 条旧结果`:"";
+  return `联网搜索「${query}」${counts}。列表保留 ${total}/${limit} 条${changes}。${partial?"部分搜索未完成。":""}`;
 }

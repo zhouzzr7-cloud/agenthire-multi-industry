@@ -5,7 +5,7 @@ import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {ArrowLeft,ArrowUpRight,Check,CircleAlert,Globe,RefreshCw,Settings} from "lucide-react";
 import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebRefreshPreferences,rememberWebSearch,webJobFollowUpTerms,webJobHref,webJobLimit,webJobPageSize,type WebJob,type WebSearchResults} from "@/lib/web-job-feed";
-import {fetchWebJobs,readSearchAccess,refreshWebJobs,searchAccessKey,webSearchErrors,type SearchProvider} from "@/lib/web-job-search";
+import {fetchWebJobs,formatWebRefreshNotice,readSearchAccess,refreshWebJobs,searchAccessKey,webRefreshNoticeKey,webSearchErrors,type SearchProvider} from "@/lib/web-job-search";
 import {withAiSearchQuery} from "@/lib/ai-search-navigation";
 import {isSearchProvider,searchProviderLabels} from "@/lib/web-search-providers.mjs";
 
@@ -140,9 +140,11 @@ export function WebJobSettings(){
     setBusy(true);
     setNotice(undefined);
     try{
-      const {found}=await refreshWebJobs(terms,limit,controller.signal);
+      const result=await refreshWebJobs(terms,limit,controller.signal);
       if(controller.signal.aborted)return;
-      if(!found){setNotice({type:"warning",message:"本次没有找到新的招聘链接。试试其他城市或关键词。"});return;}
+      const message=formatWebRefreshNotice(result);
+      if(!result.found){setNotice({type:"warning",message});return;}
+      try{sessionStorage.setItem(webRefreshNoticeKey,message);}catch{}
       router.push("/jobs/");
     }catch(error){
       if(!controller.signal.aborted)setNotice({type:"warning",message:error instanceof Error?error.message:"联网刷新失败。"});
