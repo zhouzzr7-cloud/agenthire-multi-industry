@@ -94,6 +94,9 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
   const select=(label:string,key:string,options:string[][],all="全部")=><label className="hire-filter-select"><span>{label}</span><select value={get(key)} onChange={event=>change(key,event.target.value)}><option value="">{all}</option>{options.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>;
   const aiQuery=searchParams.get("ai")?.trim();
   if(!favorites&&aiQuery&&aiQuery.length<=240)return <AIJobSearch query={aiQuery} liveJobs={feed.jobs}/>;
+  const track=get("track");
+  const trackTerm=track==="social"?"社招":tracks.find(([value])=>value&&value===track)?.[1];
+  const refreshQuery=[get("city")==="其他"?"":get("city"),get("q").trim(),trackTerm].filter(Boolean).join(" ").slice(0,240);
 
   return <div className="container hire-board">
     <section className="hire-board-head">
@@ -107,7 +110,7 @@ export function JobExplorer({favorites=false}:{favorites?:boolean}){
       <div className="hire-search hire-board-search"><Search size={21} aria-hidden="true"/><input aria-label="搜索岗位" placeholder="搜索职位、公司、城市或技能" value={get("q")} onChange={event=>change("q",event.target.value)}/>{get("q")&&<button type="button" className="hire-search-clear" aria-label="清空搜索" onClick={()=>change("q","")}><X size={18}/></button>}</div>
       {!favorites&&<AIJobSearchForm/>}
       {!favorites&&<div className="hire-board-tools">
-        {feed.manualRefresh&&<RefreshJobsButton onRefresh={reload}/>}
+        {feed.manualRefresh&&<RefreshJobsButton webSearchEnabled={feed.webSearchEnabled} fallbackQuery={refreshQuery} onRefresh={()=>{reload();setWebJobs(readWebJobs());}}/>}
         <Link href="/jobs/settings/" className="hire-apply"><Settings size={15} aria-hidden="true"/> 联网刷新设置</Link>
       </div>}
     </section>

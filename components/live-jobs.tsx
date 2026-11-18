@@ -4,6 +4,8 @@ import Link from "next/link";
 import {useEffect, useState} from "react";
 import {Activity, ArrowUpRight, BriefcaseBusiness, GraduationCap, RefreshCw} from "lucide-react";
 import {getCareerJobs, getJobs, isOpenJob, recruitmentTrack, type Job} from "@/lib/jobs";
+import {readWebRefreshPreferences} from "@/lib/web-job-feed";
+import {readSearchAccess,refreshWebJobs} from "@/lib/web-job-search";
 
 interface Feed {
   jobs: Job[];
@@ -61,36 +63,48 @@ export function RefreshLabel({feed,state}:{feed:Feed; state:string}){
   return <span>{feed.partial?"部分来源待更新 · ":stale?"更新延迟 · ":"最近同步 "}{time}</span>;
 }
 
-export function RefreshJobsButton({onRefresh}:{onRefresh:()=>void}){
-  const [busy,setBusy]=useState(false);
-  const [message,setMessage]=useState("");
+export function RefreshJobsButton({onRefresh,webSearchEnabled,fallbackQuery}:{onRefresh:()=>void;webSearchEnabled?:boolean;fallbackQuery:string}){
+  const [stage,setStage]=useState<"idle"|"site"|"web">("idle");
+  const [siteMessage,setSiteMessage]=useState("");
+  const [webMessage,setWebMessage]=useState("");
 
   async function refresh(){
-    setBusy(true);
-    setMessage("");
+    setStage("site");
+    setSiteMessage("");
+    setWebMessage("");
     try{
       const response=await fetch("/api/refresh",{method:"POST",signal:AbortSignal.timeout(180_000)});
       const data=await response.json();
-      if(!response.ok)throw new Error();
-      if(data.result==="refreshed"||data.result==="partially_refreshed"){
-        const prefix=data.result==="partially_refreshed"?"部分来源未更新，已保留可用岗位":"同步完成";
-        setMessage(prefix+(data.added>0?" · 新增 "+data.added+" 条":" · 没有新增岗位"));
-      }else{
-        throw new Error();
-      }
-      onRefresh();
+      if(!response.ok||(data.result!=="refreshed"&&data.result!=="partially_refreshed"))throw new Error();
+      setSiteMessage(`站内新增 ${data.added} 条${data.result==="partially_refreshed"?"（部分来源未更新）":""}。`);
     }catch{
-      setMessage("同步失败，已保留现有岗位。请稍后重试。");
+      setSiteMessage("站内同步失败，已保留现有岗位。");
+    }
+
+    try{
+      if(webSearchEnabled||readSearchAccess()){
+        setStage("web");
+        const {city,keywords,limit}=readWebRefreshPreferences();
+        const query=[city,keywords].map(value=>value.trim()).filter(Boolean).join(" ")||fallbackQuery;
+        const {added,found,partial}=await refreshWebJobs(query,AbortSignal.timeout(25_000),limit);
+        const summary=added?`联网新增 ${added} 条`:found?`联网找到 ${found} 条，均已收录`:"联网未找到匹配岗位";
+        setWebMessage(summary+(partial?"（补搜未完成）。":"。"));
+      }else{
+        setWebMessage("配置联网服务后可补充外部岗位。");
+      }
+    }catch(error){
+      setWebMessage(error instanceof Error&&error.name==="Error"?error.message:"联网搜索失败，已保留现有岗位。");
     }finally{
-      setBusy(false);
+      setStage("idle");
+      onRefresh();
     }
   }
 
   return <div>
-    <button type="button" className="hire-apply" onClick={refresh} disabled={busy}>
-      <RefreshCw size={15} aria-hidden="true"/> {busy?"正在同步…":"刷新岗位"}
+    <button type="button" className="hire-apply" onClick={refresh} disabled={stage!=="idle"}>
+      <RefreshCw size={15} aria-hidden="true"/> {stage==="site"?"正在同步…":stage==="web"?"正在搜索外部岗位…":"刷新岗位"}
     </button>
-    <small role="status">{message}</small>
+    <small role="status">{[siteMessage,webMessage].filter(Boolean).join(" ")}</small>
   </div>;
 }
 

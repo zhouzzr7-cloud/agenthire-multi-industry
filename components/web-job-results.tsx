@@ -4,7 +4,8 @@ import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {ArrowLeft,ArrowUpRight,Check,CircleAlert,Globe,RefreshCw,Settings} from "lucide-react";
-import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebJobs,rememberWebSearch,webFeedKey,webJobFollowUpTerms,webJobHref,webJobLimit,webJobPageSize,type WebJob,type WebSearchResults} from "@/lib/web-job-feed";
+import {findRememberedWebSearch,mergeWebJobs,preferencesKey,readWebRefreshPreferences,rememberWebSearch,webJobFollowUpTerms,webJobHref,webJobLimit,webJobPageSize,type WebJob,type WebSearchResults} from "@/lib/web-job-feed";
+import {fetchWebJobs,readSearchAccess,refreshWebJobs,searchAccessKey,webSearchErrors,type SearchProvider} from "@/lib/web-job-search";
 import {withAiSearchQuery} from "@/lib/ai-search-navigation";
 import {isSearchProvider,searchProviderLabels} from "@/lib/web-search-providers.mjs";
 
@@ -12,50 +13,6 @@ type State =
   | {status:"idle"|"loading"}
   | ({status:"ready";loadingMore?:boolean;moreError?:string;moreMessage?:string}&WebSearchResults)
   | {status:"error";message:string};
-
-type SearchProvider = keyof typeof searchProviderLabels;
-type SearchAccess = {provider:SearchProvider;apiKey:string};
-const searchAccessKey = "agenthire.web-search.session";
-
-function readSearchAccess():SearchAccess|undefined{
-  try{
-    const saved = JSON.parse(sessionStorage.getItem(searchAccessKey)??"null");
-    if(isSearchProvider(saved?.provider)&&typeof saved.apiKey==="string")return saved;
-  }catch{}
-}
-
-const errors: Record<string,string> = {
-  key_missing:"请在联网刷新设置中选择服务商并填写 API Key。",
-  quota_not_configured:"站点的联网次数限制配置有误，请检查设置。",
-  quota_exhausted:"此站点今天的联网次数已用完，北京时间每天 08:00 重置。",
-  quota_storage_unavailable:"此站点暂时无法读取联网额度，请稍后重试。",
-  invalid_provider:"请选择可用的联网搜索服务商。",
-  invalid_api_key:"请填写有效的 API Key。",
-  web_search_unavailable:"联网搜索暂时不可用，请稍后再试。",
-  invalid_limit:"请输入 1 到 50 之间的整数。",
-};
-
-const defaults = {city:"",keywords:"",limit:20};
-async function fetchWebJobs(query:string,signal:AbortSignal,limit:number){
-  const access=readSearchAccess();
-  const response=await fetch("/api/jobs/web-search",{
-    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query,limit,...access}),signal,
-  });
-  if(response.status===404)throw new Error("当前站点暂未接入联网搜索。");
-  const payload=await response.json();
-  if(!response.ok){
-    const provider=access?.provider??"deepseek";
-    const label=searchProviderLabels[provider];
-    const providerErrors:Record<string,string>={
-      [`${provider}_balance_insufficient`]:`${label} 的 API 额度不足，请检查账户。`,
-      [`${provider}_key_rejected`]:`${label} 拒绝了该 API Key，请检查密钥和搜索权限。`,
-      [`${provider}_rate_limited`]:`${label} 请求太频繁，请稍后重试。`,
-    };
-    throw new Error(errors[payload.error]??providerErrors[payload.error]??"联网搜索暂时不可用。");
-  }
-  if(!Array.isArray(payload.matches))throw new Error("未能读取联网结果。");
-  return mergeWebJobs(payload.matches,[],limit);
-}
 
 export function WebJobResults({query}:{query:string}){
   const [state,setState]=useState<State>({status:"idle"});
@@ -138,7 +95,7 @@ export function WebJobResults({query}:{query:string}){
 
 export function WebJobSettings(){
   const router=useRouter();
-  const [preferences,setPreferences]=useState({city:defaults.city,keywords:defaults.keywords,limit:String(defaults.limit)});
+  const [preferences,setPreferences]=useState({city:"",keywords:"",limit:String(webJobLimit)});
   const [provider,setProvider]=useState<SearchProvider|"site">("site");
   const [apiKey,setApiKey]=useState("");
   const [notice,setNotice]=useState<{type:"success"|"warning";message:string}>();
@@ -150,12 +107,8 @@ export function WebJobSettings(){
       setProvider(access.provider);
       setApiKey(access.apiKey);
     }
-    try{
-      const saved=JSON.parse(localStorage.getItem(preferencesKey)??"null");
-      if(saved&&typeof saved.city==="string"&&typeof saved.keywords==="string"&&Number.isInteger(saved.limit)&&saved.limit>=1&&saved.limit<=webJobLimit){
-        setPreferences({city:saved.city.slice(0,48),keywords:saved.keywords.slice(0,180),limit:String(saved.limit)});
-      }
-    }catch{}
+    const saved=readWebRefreshPreferences();
+    setPreferences({...saved,limit:String(saved.limit)});
     return ()=>active.current?.abort();
   },[]);
 
@@ -165,11 +118,11 @@ export function WebJobSettings(){
     const limit=Number(preferences.limit);
     const terms=[preferences.city.trim(),preferences.keywords.trim()].filter(Boolean).join(" ");
     const refresh=(event.nativeEvent as SubmitEvent).submitter?.getAttribute("value")==="refresh";
-    if(!Number.isInteger(limit)||limit<1||limit>webJobLimit){setNotice({type:"warning",message:errors.invalid_limit});return;}
+    if(!Number.isInteger(limit)||limit<1||limit>webJobLimit){setNotice({type:"warning",message:webSearchErrors.invalid_limit});return;}
     if(refresh&&!terms){setNotice({type:"warning",message:"请至少填写城市或岗位关键词。"});return;}
     const key=apiKey.trim();
     if(provider!=="site"&&!/^[!-~]{1,512}$/.test(key)){
-      setNotice({type:"warning",message:errors.invalid_api_key});
+      setNotice({type:"warning",message:webSearchErrors.invalid_api_key});
       return;
     }
     try{
@@ -188,12 +141,9 @@ export function WebJobSettings(){
     setBusy(true);
     setNotice(undefined);
     try{
-      const jobs=await fetchWebJobs(terms,controller.signal,limit);
+      const {found}=await refreshWebJobs(terms,controller.signal,limit);
       if(controller.signal.aborted)return;
-      if(!jobs.length){setNotice({type:"warning",message:"本次没有找到新的招聘链接。试试其他城市或关键词。"});return;}
-      const fetchedAt=new Date().toISOString();
-      const rows=mergeWebJobs(jobs.map(job=>({...job,fetchedAt})),readWebJobs(),limit);
-      localStorage.setItem(webFeedKey,JSON.stringify(rows));
+      if(!found){setNotice({type:"warning",message:"本次没有找到新的招聘链接。试试其他城市或关键词。"});return;}
       router.push("/jobs/");
     }catch(error){
       if(!controller.signal.aborted)setNotice({type:"warning",message:error instanceof Error?error.message:"联网刷新失败。"});

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {findRememberedWebSearch,findStoredWebJob,matchesWebJob,mergeWebJobs,rememberWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
+import {findRememberedWebSearch,findStoredWebJob,matchesWebJob,mergeWebJobs,readWebJobs,rememberWebJobs,webJobHref,type WebJob} from "../lib/web-job-feed";
 import {aiSearchHref,withAiSearchQuery} from "../lib/ai-search-navigation";
+import {refreshWebJobs} from "../lib/web-job-search";
 import {webJobSummaryRows,webJobSummarySections} from "../lib/web-job-summary";
 
 const base:WebJob={
@@ -56,6 +57,32 @@ test("restored web results retain the next search round even after an older sess
   assert.deepEqual(findRememberedWebSearch("北京"),{jobs:[base],visibleCount:24,completedFollowUps:1});
   value=JSON.stringify({...saved,completedFollowUps:3});
   assert.deepEqual(findRememberedWebSearch("北京"),{jobs:[base],visibleCount:24,completedFollowUps:3});
+});
+
+test("refresh combines external search batches and counts newly saved recruitment links",async t=>{
+  const original=Object.getOwnPropertyDescriptor(globalThis,"localStorage");
+  t.after(()=>{
+    if(original)Object.defineProperty(globalThis,"localStorage",original);
+    else Reflect.deleteProperty(globalThis,"localStorage");
+  });
+  const storage=new Map<string,string>();
+  Object.defineProperty(globalThis,"localStorage",{configurable:true,value:{
+    getItem:(key:string)=>storage.get(key)??null,
+    setItem:(key:string,value:string)=>storage.set(key,value),
+  }});
+  const other={...base,sourceUrl:base.sourceUrl+"2"};
+  const queries:string[]=[];
+  const request=t.mock.method(globalThis,"fetch",async(_url:string,options:{body:string})=>{
+    const {query}=JSON.parse(options.body);
+    queries.push(query);
+    return Response.json({matches:query==="北京实习"?[base]:[base,other]});
+  });
+  const signal=new AbortController().signal;
+  assert.deepEqual(await refreshWebJobs("北京实习",signal,5),{found:2,added:2,partial:false});
+  assert.deepEqual(await refreshWebJobs("北京实习",signal,5),{found:2,added:0,partial:false});
+  assert.deepEqual(queries,["北京实习","职位详情 北京实习","北京实习","职位详情 北京实习"]);
+  assert.equal(request.mock.callCount(),4);
+  assert.deepEqual(readWebJobs().map(job=>job.sourceUrl),[base.sourceUrl,other.sourceUrl]);
 });
 
 test("external announcement snippets show only complete role, degree, and headcount rows",()=>{

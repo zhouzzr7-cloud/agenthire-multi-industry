@@ -4,7 +4,7 @@ export const webJobLimit=50;
 export const webJobPageSize=12;
 export const webJobFollowUpTerms=["职位详情","招聘公告","高校就业网","企业招聘","岗位职责"] as const;
 export const preferencesKey="agenthire.web-refresh.preferences";
-export const webFeedKey="agenthire.web-refresh.results";
+const webFeedKey="agenthire.web-refresh.results";
 const recentWebJobsKey="agenthire.web-search.recent-results";
 const lastWebSearchKey="agenthire.web-search.last-query";
 let recentWebJobs:WebJob[]=[];
@@ -32,13 +32,31 @@ export function mergeWebJobs(latest:WebJob[],previous:WebJob[],limit:number){
   }).slice(0,limit);
 }
 
+export function readWebRefreshPreferences(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(preferencesKey)??"null");
+    return {
+      city:typeof saved?.city==="string"?saved.city.slice(0,48):"",
+      keywords:typeof saved?.keywords==="string"?saved.keywords.slice(0,180):"",
+      limit:Number.isInteger(saved?.limit)&&saved.limit>=1&&saved.limit<=webJobLimit?saved.limit as number:webJobLimit,
+    };
+  }catch{return {city:"",keywords:"",limit:webJobLimit};}
+}
+
 export function readWebJobs(){
   try{
     const rows=JSON.parse(localStorage.getItem(webFeedKey)??"null");
-    const {limit}=JSON.parse(localStorage.getItem(preferencesKey)??"null")??{};
-    const cap=Number.isInteger(limit)&&limit>=1&&limit<=webJobLimit?limit:webJobLimit;
-    return Array.isArray(rows)?mergeWebJobs([],rows,cap):[];
+    return Array.isArray(rows)?mergeWebJobs([],rows,readWebRefreshPreferences().limit):[];
   }catch{return [];}
+}
+
+export function saveWebJobs(jobs:WebJob[],limit:number){
+  const previous=readWebJobs();
+  const known=new Set(previous.map(job=>webJobKey(job.sourceUrl)));
+  const fetchedAt=new Date().toISOString();
+  const rows=mergeWebJobs(jobs.map(job=>({...job,fetchedAt})),previous,limit);
+  localStorage.setItem(webFeedKey,JSON.stringify(rows));
+  return rows.filter(job=>!known.has(webJobKey(job.sourceUrl))).length;
 }
 
 export function webJobHref(job:WebJob){
